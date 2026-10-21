@@ -7,6 +7,7 @@ GO
 USE AgendaBanda;
 GO
 
+DROP TABLE IF EXISTS participacao_evento;
 DROP TABLE IF EXISTS ensaio_musicos;
 DROP TABLE IF EXISTS shows;
 DROP TABLE IF EXISTS reunioes;
@@ -16,6 +17,7 @@ DROP TABLE IF EXISTS produtores;
 DROP TABLE IF EXISTS musicos;
 DROP TABLE IF EXISTS locais;
 DROP TABLE IF EXISTS cidades;
+DROP TABLE IF EXISTS tipos_evento;
 DROP TABLE IF EXISTS membros;
 GO
 
@@ -47,6 +49,14 @@ CREATE TABLE produtores (
 );
 GO
 
+CREATE TABLE tipos_evento (
+    codigo_tipo INT IDENTITY(1,1) PRIMARY KEY,
+    nome NVARCHAR(50) NOT NULL UNIQUE,
+    descricao NVARCHAR(300) NULL,
+    ativo BIT NOT NULL DEFAULT 1
+);
+GO
+
 CREATE TABLE cidades (
     codigo_cidade INT IDENTITY(1,1) PRIMARY KEY,
     nome NVARCHAR(100) NOT NULL,
@@ -72,11 +82,15 @@ CREATE TABLE agenda (
     dt_hora_fim DATETIME2 NOT NULL,
     codigo_local INT NOT NULL,
     cod_membro_criador INT NOT NULL,
+    codigo_tipo INT NOT NULL DEFAULT 1,
+    status NVARCHAR(20) NOT NULL DEFAULT N'AGENDADO',
     criado_em DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
     atualizado_em DATETIME2 NULL,
     CONSTRAINT fk_agenda_local FOREIGN KEY (codigo_local) REFERENCES locais(codigo_local),
     CONSTRAINT fk_agenda_membro_criador FOREIGN KEY (cod_membro_criador) REFERENCES membros(codigo),
-    CONSTRAINT ck_agenda_periodo CHECK (dt_hora_fim > dt_hora_in)
+    CONSTRAINT fk_agenda_tipo FOREIGN KEY (codigo_tipo) REFERENCES tipos_evento(codigo_tipo),
+    CONSTRAINT ck_agenda_periodo CHECK (dt_hora_fim > dt_hora_in),
+    CONSTRAINT ck_agenda_status CHECK (status IN (N'AGENDADO', N'CANCELADO', N'REALIZADO'))
 );
 GO
 
@@ -109,5 +123,19 @@ CREATE TABLE ensaio_musicos (
     PRIMARY KEY (codigo_agenda, cod_musico),
     CONSTRAINT fk_ensaio_musicos_ensaio FOREIGN KEY (codigo_agenda) REFERENCES ensaios(codigo_agenda) ON DELETE CASCADE,
     CONSTRAINT fk_ensaio_musicos_musico FOREIGN KEY (cod_musico) REFERENCES musicos(codigo)
+);
+GO
+
+CREATE TABLE participacao_evento (
+    codigo_agenda INT NOT NULL,
+    cod_musico INT NOT NULL,
+    status_confirmacao NVARCHAR(20) NOT NULL DEFAULT N'PENDENTE',
+    presente BIT NULL,
+    data_resposta DATETIME2 NULL,
+    observacao NVARCHAR(500) NULL,
+    PRIMARY KEY (codigo_agenda, cod_musico),
+    CONSTRAINT fk_participacao_evento_agenda FOREIGN KEY (codigo_agenda) REFERENCES agenda(codigo_agenda) ON DELETE CASCADE,
+    CONSTRAINT fk_participacao_evento_musico FOREIGN KEY (cod_musico) REFERENCES musicos(codigo),
+    CONSTRAINT ck_participacao_status CHECK (status_confirmacao IN (N'PENDENTE', N'CONFIRMADO', N'RECUSADO'))
 );
 GO

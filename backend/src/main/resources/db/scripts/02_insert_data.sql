@@ -66,6 +66,12 @@ INSERT INTO locais (nome, endereco, complemento, codigo_cidade) VALUES
 (N'Praca de Eventos', N'Av. Eventos, 1000', N'Palco externo', 9);
 GO
 
+INSERT INTO tipos_evento (nome, descricao, ativo) VALUES
+(N'ENSAIO', N'Encontro para prática e preparação musical.', 1),
+(N'SHOW', N'Apresentação pública da banda.', 1),
+(N'REUNIAO', N'Encontro de organização e planejamento.', 1);
+GO
+
 INSERT INTO agenda (titulo, descricao, dt_hora_in, dt_hora_fim, codigo_local, cod_membro_criador) VALUES
 (N'Ensaio 1', N'Ensaio geral da banda numero 1.', '2026-06-01T19:00:00', '2026-06-01T21:00:00', 1, 1),
 (N'Ensaio 2', N'Ensaio geral da banda numero 2.', '2026-06-02T19:00:00', '2026-06-02T21:00:00', 2, 2),
@@ -149,4 +155,26 @@ INSERT INTO ensaio_musicos (codigo_agenda, cod_musico) VALUES
 (8, 8),
 (9, 9),
 (10, 10);
+GO
+
+UPDATE agenda SET codigo_tipo = 2 WHERE codigo_agenda BETWEEN 11 AND 20;
+UPDATE agenda SET codigo_tipo = 3 WHERE codigo_agenda BETWEEN 21 AND 30;
+GO
+
+INSERT INTO participacao_evento (codigo_agenda, cod_musico, status_confirmacao, presente, data_resposta) VALUES
+(1, 1, N'CONFIRMADO', 1, SYSDATETIME()), (2, 2, N'CONFIRMADO', 1, SYSDATETIME()),
+(3, 3, N'CONFIRMADO', 1, SYSDATETIME()), (4, 4, N'CONFIRMADO', 1, SYSDATETIME()),
+(5, 5, N'CONFIRMADO', 1, SYSDATETIME()), (6, 6, N'CONFIRMADO', 1, SYSDATETIME()),
+(7, 7, N'CONFIRMADO', 1, SYSDATETIME()), (8, 8, N'CONFIRMADO', 1, SYSDATETIME()),
+(9, 9, N'CONFIRMADO', 1, SYSDATETIME()), (10, 10, N'CONFIRMADO', 1, SYSDATETIME()),
+(11, 1, N'PENDENTE', NULL, NULL), (12, 2, N'PENDENTE', NULL, NULL),
+(13, 3, N'PENDENTE', NULL, NULL), (14, 4, N'PENDENTE', NULL, NULL),
+(15, 5, N'PENDENTE', NULL, NULL), (16, 6, N'PENDENTE', NULL, NULL),
+(17, 7, N'PENDENTE', NULL, NULL), (18, 8, N'PENDENTE', NULL, NULL),
+(19, 9, N'PENDENTE', NULL, NULL), (20, 10, N'PENDENTE', NULL, NULL),
+(21, 1, N'PENDENTE', NULL, NULL), (22, 2, N'PENDENTE', NULL, NULL),
+(23, 3, N'PENDENTE', NULL, NULL), (24, 4, N'PENDENTE', NULL, NULL),
+(25, 5, N'PENDENTE', NULL, NULL), (26, 6, N'PENDENTE', NULL, NULL),
+(27, 7, N'PENDENTE', NULL, NULL), (28, 8, N'PENDENTE', NULL, NULL),
+(29, 9, N'PENDENTE', NULL, NULL), (30, 10, N'PENDENTE', NULL, NULL);
 GO
