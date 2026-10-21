@@ -30,7 +30,7 @@ export type LocalEvento = {
 
 export type TipoEvento = {
   codigoTipo: number;
-  nome: "ENSAIO" | "SHOW" | "REUNIAO";
+  nome: string;
   descricao?: string;
   ativo: boolean;
 };
@@ -54,7 +54,7 @@ export type Agenda = {
   criador: Membro;
   tipoEvento: TipoEvento;
   status: "AGENDADO" | "CANCELADO" | "REALIZADO";
-  tipoEspecifico: "ENSAIO" | "SHOW" | "REUNIAO" | "EVENTO";
+  tipoEspecifico: string;
   repertorio?: string;
   observacao?: string;
   pauta?: string;

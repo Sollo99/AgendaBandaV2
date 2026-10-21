@@ -6,9 +6,11 @@ import LoginPage from "./components/LoginPage";
 import AgendaPage from "./components/AgendaPage";
 import UsersPage from "./components/UsersPage";
 import LocaisPage from "./components/LocaisPage";
+import CidadesPage from "./components/CidadesPage";
+import TiposEventoPage from "./components/TiposEventoPage";
 import { ColorModeButton } from "./components/ui/ColorModeButton";
 
-type Aba = "agenda" | "usuarios" | "locais";
+type Aba = "agenda" | "usuarios" | "locais" | "cidades" | "tipos";
 
 export default function App() {
   const [usuario, setUsuario] = useState<Membro | null>(null);
@@ -42,6 +44,8 @@ export default function App() {
             <Button variant={aba === "agenda" ? "solid" : "outline"} onClick={() => setAba("agenda")}>Agenda</Button>
             {usuario.administrador && <Button variant={aba === "usuarios" ? "solid" : "outline"} onClick={() => setAba("usuarios")}>Usuários</Button>}
             {usuario.administrador && <Button variant={aba === "locais" ? "solid" : "outline"} onClick={() => setAba("locais")}>Locais</Button>}
+            {usuario.administrador && <Button variant={aba === "cidades" ? "solid" : "outline"} onClick={() => setAba("cidades")}>Cidades</Button>}
+            {usuario.administrador && <Button variant={aba === "tipos" ? "solid" : "outline"} onClick={() => setAba("tipos")}>Tipos de evento</Button>}
             <ColorModeButton />
             <Button variant="ghost" onClick={sair}>Sair</Button>
           </HStack>
@@ -52,6 +56,8 @@ export default function App() {
         {aba === "agenda" && <AgendaPage usuario={usuario} />}
         {aba === "usuarios" && usuario.administrador && <UsersPage />}
         {aba === "locais" && usuario.administrador && <LocaisPage />}
+        {aba === "cidades" && usuario.administrador && <CidadesPage />}
+        {aba === "tipos" && usuario.administrador && <TiposEventoPage />}
       </Box>
     </Box>
   );

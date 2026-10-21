@@ -4,7 +4,7 @@ import { api } from "../api";
 import type { Agenda, Cidade, LocalEvento, Membro, TipoEvento } from "../types";
 import EventForm from "./EventForm";
 
-const tiposEvento: Record<Agenda["tipoEspecifico"], { nome: string; cor: string }> = {
+const tiposEvento: Record<string, { nome: string; cor: string }> = {
   ENSAIO: { nome: "Ensaio", cor: "#3182CE" },
   SHOW: { nome: "Show", cor: "#E53E3E" },
   REUNIAO: { nome: "Reunião", cor: "#805AD5" },
@@ -227,7 +227,7 @@ export default function AgendaPage({ usuario }: { usuario: Membro }) {
 
                 <Stack gap="1">
                   {eventosDia.map((evento) => {
-                    const tipo = tiposEvento[evento.tipoEspecifico];
+                    const tipo = tiposEvento[evento.tipoEspecifico] ?? tiposEvento.EVENTO;
                     return (
                       <Button
                         key={evento.codigoAgenda}
@@ -266,8 +266,8 @@ export default function AgendaPage({ usuario }: { usuario: Membro }) {
             <Stack gap="4">
               <Flex justify="space-between" align="flex-start" gap="4">
                 <Box>
-                  <Badge style={{ background: tiposEvento[selecionado.tipoEspecifico].cor, color: "white" }}>
-                    {tiposEvento[selecionado.tipoEspecifico].nome}
+                  <Badge style={{ background: (tiposEvento[selecionado.tipoEspecifico] ?? tiposEvento.EVENTO).cor, color: "white" }}>
+                    {tiposEvento[selecionado.tipoEspecifico]?.nome ?? selecionado.tipoEvento.nome}
                   </Badge>
                   <Heading size="md" mt="3">{selecionado.titulo}</Heading>
                   <Text color="fg.muted">{dataCompleta(selecionado.dataHoraInicio)} até {dataCompleta(selecionado.dataHoraFim)}</Text>
