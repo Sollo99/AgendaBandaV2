@@ -133,8 +133,6 @@ public class AgendaService {
             reuniao.setAgenda(agenda);
             reuniao.setPauta(request.pauta() == null || request.pauta().isBlank() ? "Pauta não informada" : request.pauta());
             reuniaoRepository.save(reuniao);
-        } else {
-            throw new IllegalArgumentException("Tipo de evento sem detalhe correspondente.");
         }
         salvarParticipacoes(agenda, request.musicosIds());
     }

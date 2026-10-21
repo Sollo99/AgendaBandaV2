@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface AgendaRepository extends JpaRepository<Agenda, Integer> {
     List<Agenda> findAllByOrderByDataHoraInicioAsc();
+    boolean existsByTipoEventoCodigoTipo(Integer codigoTipo);
 }
