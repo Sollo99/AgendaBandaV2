@@ -112,6 +112,7 @@ Ordem de execução no SQL Server Management Studio:
 00_create_login.sql
 01_create_schema.sql
 02_insert_data.sql
+03_modelo_eventos.sql (somente para atualizar uma instalação antiga)
 ```
 
 O script cria o banco AgendaBanda e insere dados de teste, com pelo menos 10 registros em cada tabela.
@@ -131,6 +132,8 @@ database/02_insert_data.sql
 ```
 
 Esses scripts criam o banco AgendaBanda, o login agenda_user e os dados de teste.
+
+Para uma instalação já existente, execute `database/03_modelo_eventos.sql` depois dos scripts que já haviam sido aplicados. Para uma instalação nova, os scripts `01_create_schema.sql` e `02_insert_data.sql` já incluem os tipos, o status e as participações.
 
 ---
 
@@ -233,6 +236,10 @@ PUT /api/membros/{id}
 PATCH /api/membros/{id}/status
 GET /api/locais
 GET /api/cidades
+GET /api/tipos-evento
+GET /api/agenda/{id}/participacoes
+PATCH /api/agenda/{id}/participacoes/minha
+PATCH /api/agenda/{id}/participacoes/{musicoId}
 ```
 
 ---

@@ -1,13 +1,14 @@
 import { SyntheticEvent, useState } from "react";
 import { Box, Button, Card, Grid, HStack, Input, Stack, Text, Textarea } from "@chakra-ui/react";
 import { api } from "../api";
-import type { Agenda, Cidade, LocalEvento, Membro } from "../types";
+import type { Agenda, Cidade, LocalEvento, Membro, TipoEvento } from "../types";
 
 type Props = {
   evento: Agenda | null;
   locais: LocalEvento[];
   cidades: Cidade[];
   musicos: Membro[];
+  tiposEvento: TipoEvento[];
   onSaved: () => void;
   onCancel: () => void;
 };
@@ -17,15 +18,16 @@ function toInputDate(value?: string) {
   return value.substring(0, 16);
 }
 
-export default function EventForm({ evento, locais, cidades, musicos, onSaved, onCancel }: Props) {
-  const tipoPadrao = evento?.tipoEspecifico ?? "ENSAIO";
+export default function EventForm({ evento, locais, cidades, musicos, tiposEvento, onSaved, onCancel }: Props) {
+  const tipoPadrao = evento?.tipoEvento.codigoTipo ?? tiposEvento.find((tipo) => tipo.nome === "ENSAIO")?.codigoTipo ?? "";
   const [form, setForm] = useState({
     titulo: evento?.titulo ?? "",
     descricao: evento?.descricao ?? "",
     dataHoraInicio: toInputDate(evento?.dataHoraInicio),
     dataHoraFim: toInputDate(evento?.dataHoraFim),
     localId: evento?.local.codigoLocal?.toString() ?? "",
-    tipoEspecifico: tipoPadrao,
+    tipoEventoId: String(tipoPadrao),
+    status: evento?.status ?? "AGENDADO",
     repertorio: evento?.repertorio ?? "",
     observacao: evento?.observacao ?? "",
     pauta: evento?.pauta ?? "",
@@ -33,6 +35,8 @@ export default function EventForm({ evento, locais, cidades, musicos, onSaved, o
     musicosIds: evento?.musicos.map((m) => String(m.codigo)) ?? []
   });
   const [erro, setErro] = useState("");
+
+  const tipoSelecionado = tiposEvento.find((tipo) => tipo.codigoTipo === Number(form.tipoEventoId))?.nome ?? "";
 
   function update(campo: string, valor: string) {
     setForm((prev) => ({ ...prev, [campo]: valor }));
@@ -53,6 +57,7 @@ export default function EventForm({ evento, locais, cidades, musicos, onSaved, o
       dataHoraInicio: form.dataHoraInicio,
       dataHoraFim: form.dataHoraFim,
       localId: Number(form.localId),
+      tipoEventoId: Number(form.tipoEventoId),
       cidadeId: form.cidadeId ? Number(form.cidadeId) : null,
       musicosIds: form.musicosIds.map(Number)
     };
@@ -74,28 +79,30 @@ export default function EventForm({ evento, locais, cidades, musicos, onSaved, o
           {erro && <Text color="red.500">{erro}</Text>}
           <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap="4">
             <Box><Text mb="1">Título</Text><Input value={form.titulo} onChange={(e) => update("titulo", e.target.value)} required /></Box>
-            <Box><Text mb="1">Tipo</Text><select className="native-field" value={form.tipoEspecifico} onChange={(e) => update("tipoEspecifico", e.target.value)}><option value="ENSAIO">Ensaio</option><option value="SHOW">Show</option><option value="REUNIAO">Reunião</option></select></Box>
+            <Box><Text mb="1">Tipo</Text><select className="native-field" value={form.tipoEventoId} onChange={(e) => update("tipoEventoId", e.target.value)} required><option value="">Selecione</option>{tiposEvento.map((tipo) => <option key={tipo.codigoTipo} value={tipo.codigoTipo}>{tipo.nome.charAt(0) + tipo.nome.slice(1).toLowerCase()}</option>)}</select></Box>
+            <Box><Text mb="1">Status</Text><select className="native-field" value={form.status} onChange={(e) => update("status", e.target.value)}><option value="AGENDADO">Agendado</option><option value="CANCELADO">Cancelado</option><option value="REALIZADO">Realizado</option></select></Box>
             <Box><Text mb="1">Início</Text><Input type="datetime-local" value={form.dataHoraInicio} onChange={(e) => update("dataHoraInicio", e.target.value)} required /></Box>
             <Box><Text mb="1">Fim</Text><Input type="datetime-local" value={form.dataHoraFim} onChange={(e) => update("dataHoraFim", e.target.value)} required /></Box>
             <Box><Text mb="1">Local</Text><select className="native-field" value={form.localId} onChange={(e) => update("localId", e.target.value)} required><option value="">Selecione</option>{locais.map((l) => <option key={l.codigoLocal} value={l.codigoLocal}>{l.nome}</option>)}</select></Box>
           </Grid>
           <Box><Text mb="1">Descrição</Text><Textarea value={form.descricao} onChange={(e) => update("descricao", e.target.value)} /></Box>
 
-          {form.tipoEspecifico === "ENSAIO" && (
+          {tipoSelecionado === "ENSAIO" && (
             <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap="4">
               <Box><Text mb="1">Repertório</Text><Textarea value={form.repertorio} onChange={(e) => update("repertorio", e.target.value)} /></Box>
               <Box><Text mb="1">Observação</Text><Textarea value={form.observacao} onChange={(e) => update("observacao", e.target.value)} /></Box>
-              <Box gridColumn={{ md: "span 2" }}><Text mb="2">Músicos</Text><HStack wrap="wrap">{musicos.map((m) => <Button key={m.codigo} type="button" size="sm" variant={form.musicosIds.includes(String(m.codigo)) ? "solid" : "outline"} onClick={() => alternarMusico(String(m.codigo))}>{m.nome}</Button>)}</HStack></Box>
             </Grid>
           )}
 
-          {form.tipoEspecifico === "SHOW" && (
+          {tipoSelecionado === "SHOW" && (
             <Box><Text mb="1">Cidade do show</Text><select className="native-field" value={form.cidadeId} onChange={(e) => update("cidadeId", e.target.value)} required><option value="">Selecione</option>{cidades.map((c) => <option key={c.codigoCidade} value={c.codigoCidade}>{c.nome}/{c.uf}</option>)}</select></Box>
           )}
 
-          {form.tipoEspecifico === "REUNIAO" && (
+          {tipoSelecionado === "REUNIAO" && (
             <Box><Text mb="1">Pauta</Text><Textarea value={form.pauta} onChange={(e) => update("pauta", e.target.value)} /></Box>
           )}
+
+          <Box><Text mb="2">Músicos participantes</Text><HStack wrap="wrap">{musicos.map((m) => <Button key={m.codigo} type="button" size="sm" variant={form.musicosIds.includes(String(m.codigo)) ? "solid" : "outline"} onClick={() => alternarMusico(String(m.codigo))}>{m.nome}</Button>)}</HStack></Box>
 
           <HStack><Button type="submit">Salvar</Button><Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button></HStack>
         </Stack>

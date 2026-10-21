@@ -28,6 +28,22 @@ export type LocalEvento = {
   uf: string;
 };
 
+export type TipoEvento = {
+  codigoTipo: number;
+  nome: "ENSAIO" | "SHOW" | "REUNIAO";
+  descricao?: string;
+  ativo: boolean;
+};
+
+export type ParticipacaoEvento = {
+  codigoAgenda: number;
+  musico: Membro;
+  statusConfirmacao: "PENDENTE" | "CONFIRMADO" | "RECUSADO";
+  presente?: boolean;
+  dataResposta?: string;
+  observacao?: string;
+};
+
 export type Agenda = {
   codigoAgenda: number;
   titulo: string;
@@ -36,12 +52,15 @@ export type Agenda = {
   dataHoraFim: string;
   local: LocalEvento;
   criador: Membro;
+  tipoEvento: TipoEvento;
+  status: "AGENDADO" | "CANCELADO" | "REALIZADO";
   tipoEspecifico: "ENSAIO" | "SHOW" | "REUNIAO" | "EVENTO";
   repertorio?: string;
   observacao?: string;
   pauta?: string;
   cidadeShow?: Cidade;
   musicos: Membro[];
+  participacoes: ParticipacaoEvento[];
 };
 
 export type LoginResponse = {

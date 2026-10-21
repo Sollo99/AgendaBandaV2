@@ -1,4 +1,4 @@
-import type { Agenda, Cidade, LocalEvento, LoginResponse, Membro } from "./types";
+import type { Agenda, Cidade, LocalEvento, LoginResponse, Membro, ParticipacaoEvento, TipoEvento } from "./types";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "/api";
 
@@ -37,6 +37,10 @@ export const api = {
   criarAgenda: (data: unknown) => request<Agenda>("/agenda", { method: "POST", body: JSON.stringify(data) }),
   atualizarAgenda: (id: number, data: unknown) => request<Agenda>(`/agenda/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   excluirAgenda: (id: number) => request<{ mensagem: string }>(`/agenda/${id}`, { method: "DELETE" }),
+  listarTiposEvento: () => request<TipoEvento[]>("/tipos-evento"),
+  listarParticipacoes: (id: number) => request<ParticipacaoEvento[]>(`/agenda/${id}/participacoes`),
+  atualizarMinhaParticipacao: (id: number, data: unknown) => request<ParticipacaoEvento>(`/agenda/${id}/participacoes/minha`, { method: "PATCH", body: JSON.stringify(data) }),
+  atualizarParticipacao: (id: number, musicoId: number, data: unknown) => request<ParticipacaoEvento>(`/agenda/${id}/participacoes/${musicoId}`, { method: "PATCH", body: JSON.stringify(data) }),
   listarMembros: () => request<Membro[]>("/membros"),
   criarMembro: (data: unknown) => request<Membro>("/membros", { method: "POST", body: JSON.stringify(data) }),
   atualizarMembro: (id: number, data: unknown) => request<Membro>(`/membros/${id}`, { method: "PUT", body: JSON.stringify(data) }),

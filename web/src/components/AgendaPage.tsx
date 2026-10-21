@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Badge, Box, Button, Flex, Grid, Heading, HStack, Stack, Text } from "@chakra-ui/react";
 import { api } from "../api";
-import type { Agenda, Cidade, LocalEvento, Membro } from "../types";
+import type { Agenda, Cidade, LocalEvento, Membro, TipoEvento } from "../types";
 import EventForm from "./EventForm";
 
 const tiposEvento: Record<Agenda["tipoEspecifico"], { nome: string; cor: string }> = {
@@ -69,6 +69,7 @@ export default function AgendaPage({ usuario }: { usuario: Membro }) {
   const [membros, setMembros] = useState<Membro[]>([]);
   const [locais, setLocais] = useState<LocalEvento[]>([]);
   const [cidades, setCidades] = useState<Cidade[]>([]);
+  const [tipos, setTipos] = useState<TipoEvento[]>([]);
   const [selecionado, setSelecionado] = useState<Agenda | null>(null);
   const [editando, setEditando] = useState<Agenda | null>(null);
   const [mostrarForm, setMostrarForm] = useState(false);
@@ -104,16 +105,18 @@ export default function AgendaPage({ usuario }: { usuario: Membro }) {
   }, [mesAtual]);
 
   async function carregar() {
-    const [agenda, listaMembros, listaLocais, listaCidades] = await Promise.all([
+    const [agenda, listaMembros, listaLocais, listaCidades, listaTipos] = await Promise.all([
       api.listarAgenda(),
       api.listarMembros(),
       api.listarLocais(),
-      api.listarCidades()
+      api.listarCidades(),
+      api.listarTiposEvento()
     ]);
     setEventos(agenda);
     setMembros(listaMembros);
     setLocais(listaLocais);
     setCidades(listaCidades);
+    setTipos(listaTipos);
   }
 
   useEffect(() => {
@@ -144,6 +147,18 @@ export default function AgendaPage({ usuario }: { usuario: Membro }) {
 
   function voltarParaHoje() {
     setMesAtual(new Date(hoje.getFullYear(), hoje.getMonth(), 1));
+  }
+
+  async function atualizarParticipacao(evento: Agenda, musicoId: number, dados: unknown, propria = false) {
+    try {
+      if (propria) await api.atualizarMinhaParticipacao(evento.codigoAgenda, dados);
+      else await api.atualizarParticipacao(evento.codigoAgenda, musicoId, dados);
+      const atualizado = await api.detalharAgenda(evento.codigoAgenda);
+      setSelecionado(atualizado);
+      setEventos((lista) => lista.map((item) => item.codigoAgenda === atualizado.codigoAgenda ? atualizado : item));
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : "Não foi possível atualizar a participação.");
+    }
   }
 
   return (
@@ -268,7 +283,28 @@ export default function AgendaPage({ usuario }: { usuario: Membro }) {
                 {selecionado.observacao && <Text><b>Observação:</b> {selecionado.observacao}</Text>}
                 {selecionado.pauta && <Text><b>Pauta:</b> {selecionado.pauta}</Text>}
                 {selecionado.cidadeShow && <Text><b>Cidade do show:</b> {selecionado.cidadeShow.nome}/{selecionado.cidadeShow.uf}</Text>}
-                {selecionado.musicos.length > 0 && <Text><b>Músicos:</b> {selecionado.musicos.map((m) => m.nome).join(", ")}</Text>}
+                <Text><b>Status:</b> {selecionado.status.charAt(0) + selecionado.status.slice(1).toLowerCase()}</Text>
+                {selecionado.participacoes.length > 0 && (
+                  <Stack gap="1">
+                    <Text fontWeight="bold">Participações</Text>
+                    {selecionado.participacoes.map((participacao) => {
+                      const propria = participacao.musico.codigo === usuario.codigo;
+                      const presenca = participacao.presente === true ? " • presente" : participacao.presente === false ? " • ausente" : "";
+                      return (
+                        <Flex key={participacao.musico.codigo} justify="space-between" align="center" gap="2" wrap="wrap">
+                          <Text>{participacao.musico.nome}: {participacao.statusConfirmacao.toLowerCase()}{presenca}</Text>
+                          <HStack>
+                            {propria && <>
+                              <Button size="xs" variant="outline" onClick={() => atualizarParticipacao(selecionado, participacao.musico.codigo, { statusConfirmacao: "CONFIRMADO" }, true)}>Confirmar</Button>
+                              <Button size="xs" variant="outline" onClick={() => atualizarParticipacao(selecionado, participacao.musico.codigo, { statusConfirmacao: "RECUSADO" }, true)}>Recusar</Button>
+                            </>}
+                            {usuario.administrador && <Button size="xs" variant="outline" onClick={() => atualizarParticipacao(selecionado, participacao.musico.codigo, { presente: participacao.presente !== true })}>{participacao.presente === true ? "Marcar ausente" : "Marcar presente"}</Button>}
+                          </HStack>
+                        </Flex>
+                      );
+                    })}
+                  </Stack>
+                )}
               </Stack>
 
               {podeAlterar(selecionado) && (
@@ -289,6 +325,7 @@ export default function AgendaPage({ usuario }: { usuario: Membro }) {
             locais={locais}
             cidades={cidades}
             musicos={musicos}
+            tiposEvento={tipos}
             onCancel={() => setMostrarForm(false)}
             onSaved={async () => {
               setMostrarForm(false);
