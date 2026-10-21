@@ -41,4 +41,20 @@ public class MapperService {
                 cidade.getCodigoCidade(), cidade.getNome(), cidade.getUf());
     }
 
+    public TipoEventoDto tipoEventoDto(TipoEvento tipoEvento) {
+        if (tipoEvento == null) return null;
+        return new TipoEventoDto(tipoEvento.getCodigoTipo(), tipoEvento.getNome(), tipoEvento.getDescricao(), tipoEvento.getAtivo());
+    }
+
+    public ParticipacaoDto participacaoDto(ParticipacaoEvento participacao) {
+        return new ParticipacaoDto(
+                participacao.getAgenda().getCodigoAgenda(),
+                membroDto(participacao.getMusico().getMembro()),
+                participacao.getStatusConfirmacao(),
+                participacao.getPresente(),
+                participacao.getDataResposta(),
+                participacao.getObservacao()
+        );
+    }
+
 }
