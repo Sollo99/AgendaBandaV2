@@ -237,6 +237,13 @@ PATCH /api/membros/{id}/status
 GET /api/locais
 GET /api/cidades
 GET /api/tipos-evento
+GET /api/tipos-evento/admin
+POST /api/tipos-evento
+PUT /api/tipos-evento/{id}
+DELETE /api/tipos-evento/{id}
+POST /api/cidades
+PUT /api/cidades/{id}
+DELETE /api/cidades/{id}
 GET /api/agenda/{id}/participacoes
 PATCH /api/agenda/{id}/participacoes/minha
 PATCH /api/agenda/{id}/participacoes/{musicoId}
