@@ -30,7 +30,7 @@ public class LocalService {
 
     @Transactional(readOnly = true)
     public List<CidadeDto> listarCidades() {
-        return cidadeRepository.findAll().stream().map(mapper::cidadeDto).toList();
+        return cidadeRepository.findAllByOrderByNomeAscUfAsc().stream().map(mapper::cidadeDto).toList();
     }
 
     public LocalEvento buscarLocal(Integer id) {
