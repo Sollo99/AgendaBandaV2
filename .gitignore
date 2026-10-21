@@ -17,3 +17,6 @@ web/dist/
 # DOCS/Requisitos
 RippedDOCS.docx
 *.docx
+
+# Planejamento local
+ETAPAS.md
