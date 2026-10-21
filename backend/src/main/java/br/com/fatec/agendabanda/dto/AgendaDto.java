@@ -11,11 +11,14 @@ public record AgendaDto(
         LocalDateTime dataHoraFim,
         LocalDto local,
         MembroDto criador,
+        TipoEventoDto tipoEvento,
+        String status,
         String tipoEspecifico,
         String repertorio,
         String observacao,
         String pauta,
         CidadeDto cidadeShow,
-        List<MembroDto> musicos
+        List<MembroDto> musicos,
+        List<ParticipacaoDto> participacoes
 ) {
 }

@@ -28,6 +28,12 @@ public class Agenda {
     @JoinColumn(name = "cod_membro_criador")
     private Membro criador;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "codigo_tipo")
+    private TipoEvento tipoEvento;
+
+    private String status;
+
     @Column(name = "criado_em")
     private LocalDateTime criadoEm;
 
@@ -48,6 +54,10 @@ public class Agenda {
     public void setLocal(LocalEvento local) { this.local = local; }
     public Membro getCriador() { return criador; }
     public void setCriador(Membro criador) { this.criador = criador; }
+    public TipoEvento getTipoEvento() { return tipoEvento; }
+    public void setTipoEvento(TipoEvento tipoEvento) { this.tipoEvento = tipoEvento; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
     public LocalDateTime getCriadoEm() { return criadoEm; }
     public void setCriadoEm(LocalDateTime criadoEm) { this.criadoEm = criadoEm; }
     public LocalDateTime getAtualizadoEm() { return atualizadoEm; }

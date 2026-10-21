@@ -1,7 +1,7 @@
 package br.com.fatec.agendabanda.dto;
 
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -12,11 +12,12 @@ public record AgendaRequest(
         @NotNull LocalDateTime dataHoraInicio,
         @NotNull LocalDateTime dataHoraFim,
         @NotNull Integer localId,
-        @NotBlank String tipoEspecifico,
+        @NotNull Integer tipoEventoId,
+        @Pattern(regexp = "AGENDADO|CANCELADO|REALIZADO", message = "Status do evento inválido.") String status,
         String repertorio,
         String observacao,
         String pauta,
         Integer cidadeId,
-        List<Integer> musicosIds
+        List<@NotNull Integer> musicosIds
 ) {
 }
