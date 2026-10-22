@@ -2,6 +2,7 @@ package br.com.fatec.agendabanda.controller;
 
 import br.com.fatec.agendabanda.dto.MembroDto;
 import br.com.fatec.agendabanda.dto.MembroRequest;
+import br.com.fatec.agendabanda.dto.MusicoResumoDto;
 import br.com.fatec.agendabanda.security.TokenService;
 import br.com.fatec.agendabanda.service.MembroService;
 import br.com.fatec.agendabanda.service.PermissaoService;
@@ -26,8 +27,15 @@ public class MembroController {
     }
 
     @GetMapping
-    public List<MembroDto> listar() {
+    public List<MembroDto> listar(HttpServletRequest http) {
+        permissaoService.exigirAdmin(tokenService.sessaoObrigatoria(http));
         return membroService.listar();
+    }
+
+    @GetMapping("/musicos")
+    public List<MusicoResumoDto> listarMusicos(HttpServletRequest http) {
+        tokenService.sessaoObrigatoria(http);
+        return membroService.listarMusicos();
     }
 
     @PostMapping

@@ -22,7 +22,9 @@ public class AuthFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String path = request.getRequestURI();
 
-        if ("OPTIONS".equalsIgnoreCase(request.getMethod()) || !path.startsWith("/api/") || path.equals("/api/auth/login")) {
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod()) || !path.startsWith("/api/") ||
+                path.equals("/api/auth/login") || path.equals("/api/auth/cadastro") ||
+                path.equals("/api/auth/recuperar-senha") || path.equals("/api/auth/redefinir-senha")) {
             filterChain.doFilter(request, response);
             return;
         }
