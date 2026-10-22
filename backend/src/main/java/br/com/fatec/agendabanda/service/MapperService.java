@@ -43,7 +43,7 @@ public class MapperService {
 
     public TipoEventoDto tipoEventoDto(TipoEvento tipoEvento) {
         if (tipoEvento == null) return null;
-        return new TipoEventoDto(tipoEvento.getCodigoTipo(), tipoEvento.getNome(), tipoEvento.getDescricao(), tipoEvento.getAtivo());
+        return new TipoEventoDto(tipoEvento.getCodigoTipo(), tipoEvento.getNome(), tipoEvento.getDescricao(), tipoEvento.getCategoriaDetalhe(), tipoEvento.getAtivo());
     }
 
     public ParticipacaoDto participacaoDto(ParticipacaoEvento participacao) {

@@ -113,7 +113,7 @@ public class AgendaService {
     }
 
     private void salvarDetalhes(Agenda agenda, AgendaRequest request) {
-        String tipo = agenda.getTipoEvento().getNome().toUpperCase(Locale.ROOT);
+        String tipo = agenda.getTipoEvento().getCategoriaDetalhe();
         if ("ENSAIO".equals(tipo)) {
             var ensaio = new Ensaio();
             ensaio.setAgenda(agenda);
@@ -128,7 +128,7 @@ public class AgendaService {
             var cidade = cidadeRepository.findById(request.cidadeId()).orElseThrow(() -> new IllegalArgumentException("Cidade do show não encontrada."));
             show.setCidade(cidade);
             showRepository.save(show);
-        } else if ("REUNIAO".equals(tipo) || "REUNIÃO".equals(tipo)) {
+        } else if ("REUNIAO".equals(tipo)) {
             var reuniao = new Reuniao();
             reuniao.setAgenda(agenda);
             reuniao.setPauta(request.pauta() == null || request.pauta().isBlank() ? "Pauta não informada" : request.pauta());
@@ -190,7 +190,7 @@ public class AgendaService {
         var ensaio = ensaioRepository.findById(agenda.getCodigoAgenda()).orElse(null);
         var reuniao = reuniaoRepository.findById(agenda.getCodigoAgenda()).orElse(null);
         var show = showRepository.findById(agenda.getCodigoAgenda()).orElse(null);
-        String tipoEspecifico = agenda.getTipoEvento().getNome().toUpperCase(Locale.ROOT);
+        String tipoEspecifico = agenda.getTipoEvento().getCategoriaDetalhe();
         var participacoes = participacaoEventoRepository.findByAgendaCodigoAgendaOrderByMusicoMembroNomeAsc(agenda.getCodigoAgenda());
         var musicos = participacoes.stream()
                 .map(item -> mapper.membroDto(item.getMusico().getMembro()))

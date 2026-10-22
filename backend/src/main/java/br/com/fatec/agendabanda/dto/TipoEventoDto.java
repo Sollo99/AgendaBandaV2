@@ -1,4 +1,4 @@
 package br.com.fatec.agendabanda.dto;
 
-public record TipoEventoDto(Integer codigoTipo, String nome, String descricao, Boolean ativo) {
+public record TipoEventoDto(Integer codigoTipo, String nome, String descricao, String categoriaDetalhe, Boolean ativo) {
 }

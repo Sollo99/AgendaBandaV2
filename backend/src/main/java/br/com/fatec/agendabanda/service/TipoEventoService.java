@@ -50,6 +50,9 @@ public class TipoEventoService {
         if (tipoEmUso && Boolean.FALSE.equals(request.ativo())) {
             throw new IllegalArgumentException("Não é possível desativar um tipo já usado em eventos.");
         }
+        if (tipoEmUso && !tipo.getCategoriaDetalhe().equals(categoria(request.categoriaDetalhe()))) {
+            throw new IllegalArgumentException("Não é possível alterar a categoria de detalhe de um tipo já usado.");
+        }
         aplicar(tipo, request, id);
         return mapper.tipoEventoDto(tipoEventoRepository.save(tipo));
     }
@@ -74,6 +77,15 @@ public class TipoEventoService {
                 .ifPresent(existente -> { throw new IllegalArgumentException("Tipo de evento já cadastrado."); });
         tipo.setNome(nome);
         tipo.setDescricao(request.descricao() == null || request.descricao().isBlank() ? null : request.descricao().trim());
+        tipo.setCategoriaDetalhe(categoria(request.categoriaDetalhe()));
         tipo.setAtivo(request.ativo() == null || request.ativo());
+    }
+
+    private String categoria(String valor) {
+        String categoria = valor == null || valor.isBlank() ? "EVENTO" : valor.trim().toUpperCase(Locale.ROOT);
+        if (!List.of("EVENTO", "ENSAIO", "SHOW", "REUNIAO").contains(categoria)) {
+            throw new IllegalArgumentException("Categoria de detalhe inválida.");
+        }
+        return categoria;
     }
 }
