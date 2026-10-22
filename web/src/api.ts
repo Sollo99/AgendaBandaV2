@@ -1,4 +1,4 @@
-import type { Agenda, Cidade, LocalEvento, LoginResponse, Membro, ParticipacaoEvento, TipoEvento } from "./types";
+import type { Agenda, Cidade, LocalEvento, LoginResponse, Membro, MusicoResumo, ParticipacaoEvento, SolicitacaoSenha, TipoEvento } from "./types";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "/api";
 
@@ -31,6 +31,11 @@ export const api = {
     method: "POST",
     body: JSON.stringify({ login, senha })
   }),
+  cadastro: (data: unknown) => request<Membro>("/auth/cadastro", { method: "POST", body: JSON.stringify(data) }),
+  recuperarSenha: (identificador: string, chaveSolicitacao: string) => request<{ podeRedefinir: boolean; codigoSolicitacao?: number; mensagem: string }>("/auth/recuperar-senha", { method: "POST", body: JSON.stringify({ identificador, chaveSolicitacao }) }),
+  redefinirSenha: (codigoSolicitacao: number, chaveSolicitacao: string, novaSenha: string) => request<{ mensagem: string }>("/auth/redefinir-senha", { method: "POST", body: JSON.stringify({ codigoSolicitacao, chaveSolicitacao, novaSenha }) }),
+  listarSolicitacoesSenha: () => request<SolicitacaoSenha[]>("/redefinicoes-senha/pendentes"),
+  decidirSolicitacaoSenha: (id: number, aprovada: boolean) => request<{ mensagem: string }>(`/redefinicoes-senha/${id}`, { method: "PATCH", body: JSON.stringify({ aprovada }) }),
   logout: () => request<{ mensagem: string }>("/auth/logout", { method: "POST" }),
   listarAgenda: () => request<Agenda[]>("/agenda"),
   detalharAgenda: (id: number) => request<Agenda>(`/agenda/${id}`),
@@ -46,10 +51,13 @@ export const api = {
   atualizarMinhaParticipacao: (id: number, data: unknown) => request<ParticipacaoEvento>(`/agenda/${id}/participacoes/minha`, { method: "PATCH", body: JSON.stringify(data) }),
   atualizarParticipacao: (id: number, musicoId: number, data: unknown) => request<ParticipacaoEvento>(`/agenda/${id}/participacoes/${musicoId}`, { method: "PATCH", body: JSON.stringify(data) }),
   listarMembros: () => request<Membro[]>("/membros"),
+  listarMusicos: () => request<MusicoResumo[]>("/membros/musicos"),
   criarMembro: (data: unknown) => request<Membro>("/membros", { method: "POST", body: JSON.stringify(data) }),
   atualizarMembro: (id: number, data: unknown) => request<Membro>(`/membros/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   alterarStatusMembro: (id: number, ativo: boolean) => request<Membro>(`/membros/${id}/status`, { method: "PATCH", body: JSON.stringify({ ativo }) }),
   excluirMembro: (id: number) => request<{ mensagem: string }>(`/membros/${id}`, { method: "DELETE" }),
+  obterMeuPerfil: () => request<Membro>("/membros/me"),
+  atualizarMeuPerfil: (data: unknown) => request<Membro>("/membros/me", { method: "PUT", body: JSON.stringify(data) }),
   listarCidades: () => request<Cidade[]>("/cidades"),
   criarCidade: (data: unknown) => request<Cidade>("/cidades", { method: "POST", body: JSON.stringify(data) }),
   atualizarCidade: (id: number, data: unknown) => request<Cidade>(`/cidades/${id}`, { method: "PUT", body: JSON.stringify(data) }),

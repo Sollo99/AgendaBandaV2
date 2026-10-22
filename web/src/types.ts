@@ -12,6 +12,12 @@ export type Membro = {
   especialidade?: string;
 };
 
+export type MusicoResumo = {
+  codigo: number;
+  nome: string;
+  instrumento?: string;
+};
+
 export type Cidade = {
   codigoCidade: number;
   nome: string;
@@ -32,6 +38,7 @@ export type TipoEvento = {
   codigoTipo: number;
   nome: string;
   descricao?: string;
+  categoriaDetalhe: "EVENTO" | "ENSAIO" | "SHOW" | "REUNIAO";
   ativo: boolean;
 };
 
@@ -66,4 +73,13 @@ export type Agenda = {
 export type LoginResponse = {
   token: string;
   usuario: Membro;
+};
+
+export type SolicitacaoSenha = {
+  codigoSolicitacao: number;
+  codigoMembro: number;
+  nomeMembro: string;
+  loginMembro: string;
+  emailMembro: string;
+  solicitadoEm: string;
 };

@@ -1,13 +1,13 @@
 import { SyntheticEvent, useState } from "react";
 import { Box, Button, Card, Grid, HStack, Input, Stack, Text, Textarea } from "@chakra-ui/react";
 import { api } from "../api";
-import type { Agenda, Cidade, LocalEvento, Membro, TipoEvento } from "../types";
+import type { Agenda, Cidade, LocalEvento, MusicoResumo, TipoEvento } from "../types";
 
 type Props = {
   evento: Agenda | null;
   locais: LocalEvento[];
   cidades: Cidade[];
-  musicos: Membro[];
+  musicos: MusicoResumo[];
   tiposEvento: TipoEvento[];
   onSaved: () => void;
   onCancel: () => void;
@@ -36,7 +36,7 @@ export default function EventForm({ evento, locais, cidades, musicos, tiposEvent
   });
   const [erro, setErro] = useState("");
 
-  const tipoSelecionado = tiposEvento.find((tipo) => tipo.codigoTipo === Number(form.tipoEventoId))?.nome ?? "";
+  const tipoSelecionado = tiposEvento.find((tipo) => tipo.codigoTipo === Number(form.tipoEventoId))?.categoriaDetalhe ?? "EVENTO";
 
   function update(campo: string, valor: string) {
     setForm((prev) => ({ ...prev, [campo]: valor }));

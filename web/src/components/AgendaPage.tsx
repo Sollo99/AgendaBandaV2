@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Badge, Box, Button, Flex, Grid, Heading, HStack, Stack, Text } from "@chakra-ui/react";
 import { api } from "../api";
-import type { Agenda, Cidade, LocalEvento, Membro, TipoEvento } from "../types";
+import type { Agenda, Cidade, LocalEvento, Membro, MusicoResumo, TipoEvento } from "../types";
 import EventForm from "./EventForm";
 
 const tiposEvento: Record<string, { nome: string; cor: string }> = {
@@ -66,7 +66,7 @@ function ModalShell({ children, onClose }: { children: React.ReactNode; onClose:
 export default function AgendaPage({ usuario }: { usuario: Membro }) {
   const hoje = useMemo(() => new Date(), []);
   const [eventos, setEventos] = useState<Agenda[]>([]);
-  const [membros, setMembros] = useState<Membro[]>([]);
+  const [membros, setMembros] = useState<MusicoResumo[]>([]);
   const [locais, setLocais] = useState<LocalEvento[]>([]);
   const [cidades, setCidades] = useState<Cidade[]>([]);
   const [tipos, setTipos] = useState<TipoEvento[]>([]);
@@ -76,7 +76,7 @@ export default function AgendaPage({ usuario }: { usuario: Membro }) {
   const [mesAtual, setMesAtual] = useState(() => new Date(hoje.getFullYear(), hoje.getMonth(), 1));
   const [erro, setErro] = useState("");
 
-  const musicos = useMemo(() => membros.filter((m) => m.perfil === "MUSICO" && m.ativo), [membros]);
+  const musicos = membros;
 
   const eventosPorDia = useMemo(() => {
     const agrupados = new Map<string, Agenda[]>();
@@ -107,7 +107,7 @@ export default function AgendaPage({ usuario }: { usuario: Membro }) {
   async function carregar() {
     const [agenda, listaMembros, listaLocais, listaCidades, listaTipos] = await Promise.all([
       api.listarAgenda(),
-      api.listarMembros(),
+      api.listarMusicos(),
       api.listarLocais(),
       api.listarCidades(),
       api.listarTiposEvento()

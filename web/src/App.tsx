@@ -8,9 +8,11 @@ import UsersPage from "./components/UsersPage";
 import LocaisPage from "./components/LocaisPage";
 import CidadesPage from "./components/CidadesPage";
 import TiposEventoPage from "./components/TiposEventoPage";
+import PerfilPage from "./components/PerfilPage";
+import SolicitacoesSenhaAdmin from "./components/SolicitacoesSenhaAdmin";
 import { ColorModeButton } from "./components/ui/ColorModeButton";
 
-type Aba = "agenda" | "usuarios" | "locais" | "cidades" | "tipos";
+type Aba = "agenda" | "perfil" | "usuarios" | "locais" | "cidades" | "tipos";
 
 export default function App() {
   const [usuario, setUsuario] = useState<Membro | null>(null);
@@ -34,6 +36,7 @@ export default function App() {
 
   return (
     <Box minH="100vh" bg="bg.subtle">
+      {usuario.administrador && <SolicitacoesSenhaAdmin />}
       <Box borderBottomWidth="1px" bg="bg.panel" position="sticky" top="0" zIndex="10">
         <Flex maxW="1180px" mx="auto" px="6" py="4" justify="space-between" align="center" gap="4" wrap="wrap">
           <Box>
@@ -42,6 +45,7 @@ export default function App() {
           </Box>
           <HStack wrap="wrap">
             <Button variant={aba === "agenda" ? "solid" : "outline"} onClick={() => setAba("agenda")}>Agenda</Button>
+            <Button variant={aba === "perfil" ? "solid" : "outline"} onClick={() => setAba("perfil")}>Meu perfil</Button>
             {usuario.administrador && <Button variant={aba === "usuarios" ? "solid" : "outline"} onClick={() => setAba("usuarios")}>Usuários</Button>}
             {usuario.administrador && <Button variant={aba === "locais" ? "solid" : "outline"} onClick={() => setAba("locais")}>Locais</Button>}
             {usuario.administrador && <Button variant={aba === "cidades" ? "solid" : "outline"} onClick={() => setAba("cidades")}>Cidades</Button>}
@@ -54,6 +58,7 @@ export default function App() {
 
       <Box maxW="1180px" mx="auto" p="6">
         {aba === "agenda" && <AgendaPage usuario={usuario} />}
+        {aba === "perfil" && <PerfilPage usuario={usuario} onAtualizar={setUsuario} />}
         {aba === "usuarios" && usuario.administrador && <UsersPage />}
         {aba === "locais" && usuario.administrador && <LocaisPage />}
         {aba === "cidades" && usuario.administrador && <CidadesPage />}
