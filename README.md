@@ -168,7 +168,9 @@ DB_USER=agenda_user
 DB_PASSWORD=agenda123
 ```
 
-Para recuperar uma senha, o membro informa o login ou e-mail na tela inicial. A solicitação fica pendente até um administrador aprovar ou recusar pelo aviso exibido no sistema. Depois da aprovação, no mesmo navegador, o membro informa o mesmo login ou e-mail e é direcionado para cadastrar a nova senha.
+O cadastro público cria um membro ativo com perfil de músico, sem permissões administrativas. Músicos inativos não aparecem na seleção de novos participantes. A edição administrativa preserva o perfil e suas participações; membros com participações, eventos criados ou decisões de recuperação devem ser desativados para preservar esses vínculos.
+
+Para recuperar uma senha, o membro informa o login ou e-mail na tela inicial. A solicitação fica pendente até um administrador aprovar ou recusar pelo aviso exibido no sistema. Depois da aprovação, ele pode informar tanto o login quanto o e-mail para definir a nova senha. A autorização é guardada em cookie HttpOnly, sem usar o localStorage. A tela também exibe um código de recuperação que deve ser guardado para continuar em outro navegador. Sem esse código, outro navegador não acessa nem substitui uma solicitação aberta.
 
 Execute:
 
