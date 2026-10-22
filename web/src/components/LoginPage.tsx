@@ -9,8 +9,10 @@ export default function LoginPage({ onLogin }: { onLogin: (usuario: Membro) => v
   const [modo, setModo] = useState<Modo>("login");
   const [login, setLogin] = useState("usuario");
   const [senha, setSenha] = useState("usuario");
-  const [cadastro, setCadastro] = useState({ nome: "", cpf: "", email: "", login: "", senha: "" });
+  const [cadastro, setCadastro] = useState({ nome: "", cpf: "", email: "", login: "", senha: "", instrumento: "", biografia: "" });
   const [identificador, setIdentificador] = useState("");
+  const [codigoInformado, setCodigoInformado] = useState("");
+  const [codigoRecuperacao, setCodigoRecuperacao] = useState("");
   const [codigoSolicitacao, setCodigoSolicitacao] = useState<number | null>(null);
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmacaoSenha, setConfirmacaoSenha] = useState("");
@@ -62,14 +64,9 @@ export default function LoginPage({ onLogin }: { onLogin: (usuario: Membro) => v
     setErro("");
     setCarregando(true);
     try {
-      const chaveStorage = `redefinicao-senha:${identificador.trim().toLowerCase()}`;
-      let chaveSolicitacao = localStorage.getItem(chaveStorage);
-      if (!chaveSolicitacao) {
-        chaveSolicitacao = crypto.randomUUID();
-        localStorage.setItem(chaveStorage, chaveSolicitacao);
-      }
-      const resposta = await api.recuperarSenha(identificador, chaveSolicitacao);
+      const resposta = await api.recuperarSenha(identificador, codigoInformado.trim() || undefined);
       setMensagem(resposta.mensagem);
+      setCodigoRecuperacao(resposta.codigoRecuperacao ?? "");
       if (resposta.podeRedefinir && resposta.codigoSolicitacao) {
         setCodigoSolicitacao(resposta.codigoSolicitacao);
         setModo("redefinir");
@@ -91,10 +88,12 @@ export default function LoginPage({ onLogin }: { onLogin: (usuario: Membro) => v
     setCarregando(true);
     try {
       if (!codigoSolicitacao) throw new Error("Solicitação de redefinição inválida.");
-      const chaveSolicitacao = localStorage.getItem(`redefinicao-senha:${identificador.trim().toLowerCase()}`);
-      if (!chaveSolicitacao) throw new Error("Não foi possível validar esta solicitação neste dispositivo.");
-      const resposta = await api.redefinirSenha(codigoSolicitacao, chaveSolicitacao, novaSenha);
-      localStorage.removeItem(`redefinicao-senha:${identificador.trim().toLowerCase()}`);
+      const resposta = await api.redefinirSenha(codigoSolicitacao, novaSenha, codigoInformado.trim() || undefined);
+      setCodigoSolicitacao(null);
+      setCodigoInformado("");
+      setCodigoRecuperacao("");
+      setNovaSenha("");
+      setConfirmacaoSenha("");
       setMensagem(resposta.mensagem);
       setSenha("");
       setModo("login");
@@ -112,7 +111,7 @@ export default function LoginPage({ onLogin }: { onLogin: (usuario: Membro) => v
           <Stack gap="5">
             <Box>
               <Heading>Agenda da Banda</Heading>
-              <Text color="fg.muted">{modo === "login" ? "Acesse com login e senha para visualizar a agenda." : modo === "cadastro" ? "Crie sua conta de membro." : modo === "recuperar" ? "Informe seu login ou e-mail para solicitar a redefinição." : "Defina uma nova senha para sua conta."}</Text>
+              <Text color="fg.muted">{modo === "login" ? "Acesse com login e senha para visualizar a agenda." : modo === "cadastro" ? "Crie sua conta de músico." : modo === "recuperar" ? "Informe seu login ou e-mail para solicitar a redefinição ou consultar sua aprovação." : "Defina uma nova senha para sua conta."}</Text>
             </Box>
             {mensagem && <Text color="green.600">{mensagem}</Text>}
             {erro && <Text color="red.500">{erro}</Text>}
@@ -131,12 +130,16 @@ export default function LoginPage({ onLogin }: { onLogin: (usuario: Membro) => v
               <Box><Text mb="2">E-mail</Text><Input type="email" value={cadastro.email} onChange={(e) => setCadastro({ ...cadastro, email: e.target.value })} required /></Box>
               <Box><Text mb="2">Login</Text><Input value={cadastro.login} onChange={(e) => setCadastro({ ...cadastro, login: e.target.value })} required /></Box>
               <Box><Text mb="2">Senha</Text><Input type="password" minLength={6} value={cadastro.senha} onChange={(e) => setCadastro({ ...cadastro, senha: e.target.value })} required /></Box>
+              <Box><Text mb="2">Instrumento</Text><Input maxLength={80} value={cadastro.instrumento} onChange={(e) => setCadastro({ ...cadastro, instrumento: e.target.value })} /></Box>
+              <Box><Text mb="2">Biografia (opcional)</Text><Input maxLength={500} value={cadastro.biografia} onChange={(e) => setCadastro({ ...cadastro, biografia: e.target.value })} /></Box>
               <Button type="submit" loading={carregando}>Cadastrar</Button>
               <Button type="button" variant="ghost" onClick={() => trocarModo("login")}>Voltar ao login</Button>
             </Stack>}
 
             {modo === "recuperar" && <Stack gap="4" as="form" onSubmit={solicitarRedefinicao}>
               <Box><Text mb="2">Login ou e-mail</Text><Input value={identificador} onChange={(e) => setIdentificador(e.target.value)} required /></Box>
+              <Box><Text mb="2">Código de recuperação (se estiver em outro navegador)</Text><Input value={codigoInformado} minLength={32} maxLength={128} autoComplete="off" onChange={(e) => setCodigoInformado(e.target.value)} /><Text fontSize="sm" color="fg.muted">Deixe vazio para usar a solicitação deste navegador.</Text></Box>
+              {codigoRecuperacao && <Box><Text mb="2">Guarde seu código de recuperação</Text><Input value={codigoRecuperacao} readOnly autoComplete="off" /><Text fontSize="sm" color="fg.muted">Ele permite continuar em outro navegador após a aprovação. Não compartilhe este código.</Text></Box>}
               <Button type="submit" loading={carregando}>Solicitar redefinição</Button>
               <Button type="button" variant="ghost" onClick={() => trocarModo("login")}>Voltar ao login</Button>
             </Stack>}

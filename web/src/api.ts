@@ -32,8 +32,8 @@ export const api = {
     body: JSON.stringify({ login, senha })
   }),
   cadastro: (data: unknown) => request<Membro>("/auth/cadastro", { method: "POST", body: JSON.stringify(data) }),
-  recuperarSenha: (identificador: string, chaveSolicitacao: string) => request<{ podeRedefinir: boolean; codigoSolicitacao?: number; mensagem: string }>("/auth/recuperar-senha", { method: "POST", body: JSON.stringify({ identificador, chaveSolicitacao }) }),
-  redefinirSenha: (codigoSolicitacao: number, chaveSolicitacao: string, novaSenha: string) => request<{ mensagem: string }>("/auth/redefinir-senha", { method: "POST", body: JSON.stringify({ codigoSolicitacao, chaveSolicitacao, novaSenha }) }),
+  recuperarSenha: (identificador: string, chaveSolicitacao?: string) => request<{ podeRedefinir: boolean; codigoSolicitacao?: number; mensagem: string; codigoRecuperacao?: string }>("/auth/recuperar-senha", { method: "POST", credentials: "include", body: JSON.stringify({ identificador, chaveSolicitacao }) }),
+  redefinirSenha: (codigoSolicitacao: number, novaSenha: string, chaveSolicitacao?: string) => request<{ mensagem: string }>("/auth/redefinir-senha", { method: "POST", credentials: "include", body: JSON.stringify({ codigoSolicitacao, chaveSolicitacao, novaSenha }) }),
   listarSolicitacoesSenha: () => request<SolicitacaoSenha[]>("/redefinicoes-senha/pendentes"),
   decidirSolicitacaoSenha: (id: number, aprovada: boolean) => request<{ mensagem: string }>(`/redefinicoes-senha/${id}`, { method: "PATCH", body: JSON.stringify({ aprovada }) }),
   logout: () => request<{ mensagem: string }>("/auth/logout", { method: "POST" }),
