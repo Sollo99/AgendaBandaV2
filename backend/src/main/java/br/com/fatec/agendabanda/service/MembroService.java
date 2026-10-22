@@ -1,7 +1,6 @@
 package br.com.fatec.agendabanda.service;
 
-import br.com.fatec.agendabanda.dto.MembroDto;
-import br.com.fatec.agendabanda.dto.MembroRequest;
+import br.com.fatec.agendabanda.dto.*;
 import br.com.fatec.agendabanda.model.Membro;
 import br.com.fatec.agendabanda.model.Musico;
 import br.com.fatec.agendabanda.model.Produtor;
@@ -37,18 +36,23 @@ public class MembroService {
         return membroRepository.findAll().stream().map(mapperService::membroDto).toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<MusicoResumoDto> listarMusicos() {
+        return musicoRepository.findAll().stream()
+                .map(musico -> new MusicoResumoDto(musico.getCodigo(), musico.getMembro().getNome(), musico.getInstrumento()))
+                .toList();
+    }
+
     public Membro buscarEntidade(Integer id) {
         return membroRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Membro não encontrado."));
     }
 
     @Transactional
     public MembroDto criar(MembroRequest request) {
-        if (membroRepository.existsByLogin(request.login())) throw new IllegalArgumentException("Login já cadastrado.");
-        if (membroRepository.existsByEmail(request.email())) throw new IllegalArgumentException("E-mail já cadastrado.");
-        if (membroRepository.existsByCpf(request.cpf())) throw new IllegalArgumentException("CPF já cadastrado.");
         if (request.senha() == null || request.senha().isBlank()) throw new IllegalArgumentException("Senha é obrigatória no cadastro.");
 
         var membro = new Membro();
+        validarUnicidade(request.cpf(), request.email(), request.login(), null);
         aplicarDados(membro, request);
         membro.setSenha(passwordEncoder.encode(request.senha()));
         membro.setCriadoEm(LocalDateTime.now());
@@ -60,6 +64,7 @@ public class MembroService {
     @Transactional
     public MembroDto atualizar(Integer id, MembroRequest request) {
         var membro = buscarEntidade(id);
+        validarUnicidade(request.cpf(), request.email(), request.login(), id);
         aplicarDados(membro, request);
         if (request.senha() != null && !request.senha().isBlank()) {
             membro.setSenha(passwordEncoder.encode(request.senha()));
@@ -79,6 +84,55 @@ public class MembroService {
     }
 
     @Transactional
+    public MembroDto criarCadastro(CadastroRequest request) {
+        validarUnicidade(request.cpf(), request.email(), request.login(), null);
+        var membro = new Membro();
+        membro.setNome(request.nome().trim());
+        membro.setCpf(request.cpf().trim());
+        membro.setEmail(request.email().trim());
+        membro.setLogin(request.login().trim());
+        membro.setSenha(passwordEncoder.encode(request.senha()));
+        membro.setAdministrador(false);
+        membro.setAtivo(true);
+        membro.setCriadoEm(LocalDateTime.now());
+        return mapperService.membroDto(membroRepository.save(membro));
+    }
+
+    @Transactional(readOnly = true)
+    public MembroDto obterProprio(Integer codigoMembro) {
+        return mapperService.membroDto(buscarEntidade(codigoMembro));
+    }
+
+    @Transactional
+    public MembroDto atualizarProprio(Integer codigoMembro, PerfilRequest request) {
+        var membro = buscarEntidade(codigoMembro);
+        validarUnicidade(request.cpf(), request.email(), request.login(), codigoMembro);
+        membro.setNome(request.nome().trim());
+        membro.setCpf(request.cpf().trim());
+        membro.setEmail(request.email().trim());
+        membro.setLogin(request.login().trim());
+        if (request.novaSenha() != null && !request.novaSenha().isBlank()) {
+            if (request.senhaAtual() == null || !passwordEncoder.matches(request.senhaAtual(), membro.getSenha())) {
+                throw new IllegalArgumentException("A senha atual informada é inválida.");
+            }
+            membro.setSenha(passwordEncoder.encode(request.novaSenha()));
+        }
+        var salvo = membroRepository.save(membro);
+        musicoRepository.findById(codigoMembro).ifPresent(musico -> {
+            if (request.instrumento() != null) musico.setInstrumento(request.instrumento().trim());
+            if (request.biografia() != null) musico.setBiografia(request.biografia().trim());
+            musicoRepository.save(musico);
+        });
+        return mapperService.membroDto(salvo);
+    }
+
+    @Transactional
+    public void redefinirSenha(Membro membro, String novaSenha) {
+        membro.setSenha(passwordEncoder.encode(novaSenha));
+        membroRepository.save(membro);
+    }
+
+    @Transactional
     public void excluir(Integer id) {
         musicoRepository.deleteById(id);
         produtorRepository.deleteById(id);
@@ -86,12 +140,24 @@ public class MembroService {
     }
 
     private void aplicarDados(Membro membro, MembroRequest request) {
-        membro.setNome(request.nome());
-        membro.setCpf(request.cpf());
-        membro.setEmail(request.email());
-        membro.setLogin(request.login());
+        membro.setNome(request.nome().trim());
+        membro.setCpf(request.cpf().trim());
+        membro.setEmail(request.email().trim());
+        membro.setLogin(request.login().trim());
         membro.setAdministrador(Boolean.TRUE.equals(request.administrador()));
         membro.setAtivo(request.ativo() == null || request.ativo());
+    }
+
+    private void validarUnicidade(String cpf, String email, String login, Integer codigoAtual) {
+        membroRepository.findByLogin(login.trim())
+                .filter(membro -> !membro.getCodigo().equals(codigoAtual))
+                .ifPresent(membro -> { throw new IllegalArgumentException("Login já cadastrado."); });
+        membroRepository.findByEmailIgnoreCase(email.trim())
+                .filter(membro -> !membro.getCodigo().equals(codigoAtual))
+                .ifPresent(membro -> { throw new IllegalArgumentException("E-mail já cadastrado."); });
+        membroRepository.findByCpf(cpf.trim())
+                .filter(membro -> !membro.getCodigo().equals(codigoAtual))
+                .ifPresent(membro -> { throw new IllegalArgumentException("CPF já cadastrado."); });
     }
 
     private void salvarPerfil(Membro membro, MembroRequest request) {
