@@ -26,7 +26,7 @@ public class ParticipacaoEventoService {
 
     @Transactional(readOnly = true)
     public List<ParticipacaoDto> listar(Integer codigoAgenda) {
-        return participacaoRepository.findByAgendaCodigoAgendaOrderByMusicoMembroNomeAsc().stream().map(mapper::participacaoDto).toList();
+        return participacaoRepository.findByAgendaCodigoAgendaOrderByMusicoMembroNomeAsc(codigoAgenda).stream().map(mapper::participacaoDto).toList();
     }
 
     @Transactional
