@@ -112,7 +112,6 @@ Ordem de execução no SQL Server Management Studio:
 00_create_login.sql
 01_create_schema.sql
 02_insert_data.sql
-03_modelo_eventos.sql (somente para atualizar uma instalação antiga)
 ```
 
 O script cria o banco AgendaBanda e insere dados de teste, com pelo menos 10 registros em cada tabela.
@@ -133,7 +132,7 @@ database/02_insert_data.sql
 
 Esses scripts criam o banco AgendaBanda, o login agenda_user e os dados de teste.
 
-Para uma instalação já existente, execute `database/03_modelo_eventos.sql` depois dos scripts que já haviam sido aplicados. Para uma instalação nova, os scripts `01_create_schema.sql` e `02_insert_data.sql` já incluem os tipos, o status e as participações.
+Os scripts `01_create_schema.sql` e `02_insert_data.sql` criam toda a estrutura atual, incluindo tipos de evento, participações, redefinições de senha e sessões.
 
 ---
 
@@ -168,6 +167,8 @@ DB_URL=jdbc:sqlserver://localhost;instanceName=SQLEXPRESS;databaseName=AgendaBan
 DB_USER=agenda_user
 DB_PASSWORD=agenda123
 ```
+
+Para recuperar uma senha, o membro informa o login ou e-mail na tela inicial. A solicitação fica pendente até um administrador aprovar ou recusar pelo aviso exibido no sistema. Depois da aprovação, no mesmo navegador, o membro informa o mesmo login ou e-mail e é direcionado para cadastrar a nova senha.
 
 Execute:
 
@@ -226,6 +227,11 @@ teste / teste
 ```bash
 POST /api/auth/login
 POST /api/auth/logout
+POST /api/auth/cadastro
+POST /api/auth/recuperar-senha
+POST /api/auth/redefinir-senha
+GET /api/redefinicoes-senha/pendentes
+PATCH /api/redefinicoes-senha/{id}
 GET /api/agenda
 POST /api/agenda
 PUT /api/agenda/{id}
@@ -247,6 +253,8 @@ DELETE /api/cidades/{id}
 GET /api/agenda/{id}/participacoes
 PATCH /api/agenda/{id}/participacoes/minha
 PATCH /api/agenda/{id}/participacoes/{musicoId}
+GET /api/membros/me
+PUT /api/membros/me
 ```
 
 ---
@@ -265,7 +273,6 @@ Projeto desenvolvido para o Projeto de Extensão Comunitária do 3º semestre.
 
 # Futuras Melhorias
 
-* Recuperação de senha
 * Calendário mensal visual
 * Relatórios de eventos
 * Notificações automáticas

@@ -5,7 +5,6 @@
    - `database/00_create_login.sql`
    - `database/01_create_schema.sql`
    - `database/02_insert_data.sql`
-   - `database/03_modelo_eventos.sql` somente para atualizar uma instalação antiga.
 3. Rode o backend com `mvn spring-boot:run` dentro de `backend`.
 4. Rode o frontend com `npm install` e `npm run dev` dentro de `web`.
 5. Acesse `http://localhost:5173`.
