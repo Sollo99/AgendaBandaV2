@@ -9,4 +9,5 @@ import java.util.List;
 public interface ParticipacaoEventoRepository extends JpaRepository<ParticipacaoEvento, ParticipacaoEventoId> {
     List<ParticipacaoEvento> findByAgendaCodigoAgendaOrderByMusicoMembroNomeAsc(Integer codigoAgenda);
     void deleteByAgendaCodigoAgenda(Integer codigoAgenda);
+    boolean existsByMusicoCodigo(Integer codigoMusico);
 }

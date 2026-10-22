@@ -56,15 +56,19 @@ public class AuthService {
     public RecuperarSenhaResponse solicitarRedefinicaoSenha(RecuperarSenhaRequest request) {
         var membro = buscarPorIdentificador(request.identificador());
         if (membro == null || !Boolean.TRUE.equals(membro.getAtivo())) {
-            return new RecuperarSenhaResponse(false, null, "Se os dados estiverem corretos, a solicitação será analisada por um administrador.");
+            return new RecuperarSenhaResponse(false, null, "Se os dados estiverem corretos, a solicitação será analisada por um administrador.", null);
         }
 
         var ultima = redefinicaoSenhaRepository.findTopByMembroCodigoOrderBySolicitadoEmDesc(membro.getCodigo()).orElse(null);
-        if (ultima != null && "APROVADA".equals(ultima.getStatus()) && chaveConfere(ultima, request.chaveSolicitacao())) {
-            return new RecuperarSenhaResponse(true, ultima.getCodigoRedefinicao(), "Solicitação aprovada. Defina sua nova senha.");
-        }
-        if (ultima != null && "PENDENTE".equals(ultima.getStatus())) {
-            return new RecuperarSenhaResponse(false, null, "Sua solicitação está aguardando a aprovação de um administrador.");
+        if (ultima != null && ("APROVADA".equals(ultima.getStatus()) || "PENDENTE".equals(ultima.getStatus()))) {
+            if (!chaveConfere(ultima, request.chaveSolicitacao())) {
+                return new RecuperarSenhaResponse(false, null,
+                        "Já existe uma solicitação aberta. Use o navegador em que ela foi criada ou informe o código de recuperação salvo.", null);
+            }
+            if ("APROVADA".equals(ultima.getStatus())) {
+                return new RecuperarSenhaResponse(true, ultima.getCodigoRedefinicao(), "Solicitação aprovada. Defina sua nova senha.", request.chaveSolicitacao());
+            }
+            return new RecuperarSenhaResponse(false, null, "Sua solicitação está aguardando a aprovação de um administrador.", request.chaveSolicitacao());
         }
 
         var redefinicao = new RedefinicaoSenha();
@@ -73,7 +77,7 @@ public class AuthService {
         redefinicao.setChaveHash(hash(request.chaveSolicitacao()));
         redefinicao.setSolicitadoEm(LocalDateTime.now());
         redefinicaoSenhaRepository.save(redefinicao);
-        return new RecuperarSenhaResponse(false, null, "Solicitação enviada para aprovação de um administrador.");
+        return new RecuperarSenhaResponse(false, null, "Solicitação enviada para aprovação de um administrador.", request.chaveSolicitacao());
     }
 
     @Transactional
@@ -82,6 +86,9 @@ public class AuthService {
                 .orElseThrow(() -> new IllegalArgumentException("A solicitação não está aprovada ou já foi utilizada."));
         if (!chaveConfere(redefinicao, request.chaveSolicitacao())) {
             throw new IllegalArgumentException("Solicitação de redefinição inválida.");
+        }
+        if (!Boolean.TRUE.equals(redefinicao.getMembro().getAtivo())) {
+            throw new IllegalArgumentException("Usuário desativado.");
         }
         membroService.redefinirSenha(redefinicao.getMembro(), request.novaSenha());
         redefinicao.setStatus("CONCLUIDA");
@@ -117,7 +124,7 @@ public class AuthService {
     }
 
     private boolean chaveConfere(RedefinicaoSenha redefinicao, String chave) {
-        return redefinicao.getChaveHash().equals(hash(chave));
+        return chave != null && MessageDigest.isEqual(redefinicao.getChaveHash().getBytes(StandardCharsets.UTF_8), hash(chave).getBytes(StandardCharsets.UTF_8));
     }
 
     private String hash(String valor) {
