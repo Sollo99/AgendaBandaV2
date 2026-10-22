@@ -9,4 +9,5 @@ import java.util.List;
 public interface EnsaioMusicoRepository extends JpaRepository<EnsaioMusico, EnsaioMusicoId> {
     List<EnsaioMusico> findByEnsaioCodigoAgenda(Integer codigoAgenda);
     void deleteByEnsaioCodigoAgenda(Integer codigoAgenda);
+    boolean existsByMusicoCodigo(Integer codigoMusico);
 }

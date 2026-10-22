@@ -9,6 +9,8 @@ public record CadastroRequest(
         @NotBlank String cpf,
         @Email @NotBlank String email,
         @NotBlank String login,
-        @NotBlank @Size(min = 6, message = "A senha deve ter pelo menos 6 caracteres.") String senha
+        @NotBlank @Size(min = 6, message = "A senha deve ter pelo menos 6 caracteres.") String senha,
+        @Size(max = 80) String instrumento,
+        @Size(max = 500) String biografia
 ) {
 }
