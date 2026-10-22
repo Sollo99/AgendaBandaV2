@@ -7,6 +7,8 @@ GO
 USE AgendaBanda;
 GO
 
+DROP TABLE IF EXISTS sessoes;
+DROP TABLE IF EXISTS redefinicoes_senha;
 DROP TABLE IF EXISTS participacao_evento;
 DROP TABLE IF EXISTS ensaio_musicos;
 DROP TABLE IF EXISTS shows;
@@ -34,6 +36,37 @@ CREATE TABLE membros (
 );
 GO
 
+CREATE TABLE redefinicoes_senha (
+    codigo_redefinicao INT IDENTITY(1,1) PRIMARY KEY,
+    codigo_membro INT NOT NULL,
+    status NVARCHAR(15) NOT NULL DEFAULT 'PENDENTE',
+    chave_hash CHAR(64) NOT NULL,
+    solicitado_em DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    codigo_administrador INT NULL,
+    decidido_em DATETIME2 NULL,
+    concluido_em DATETIME2 NULL,
+    CONSTRAINT ck_redefinicoes_senha_status CHECK (status IN ('PENDENTE', 'APROVADA', 'RECUSADA', 'CONCLUIDA')),
+    CONSTRAINT fk_redefinicoes_senha_membro FOREIGN KEY (codigo_membro) REFERENCES membros(codigo) ON DELETE CASCADE,
+    CONSTRAINT fk_redefinicoes_senha_administrador FOREIGN KEY (codigo_administrador) REFERENCES membros(codigo)
+);
+GO
+
+CREATE TABLE sessoes (
+    codigo_sessao INT IDENTITY(1,1) PRIMARY KEY,
+    token_hash CHAR(64) NOT NULL UNIQUE,
+    codigo_membro INT NOT NULL,
+    criado_em DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    expira_em DATETIME2 NOT NULL,
+    CONSTRAINT fk_sessoes_membro FOREIGN KEY (codigo_membro) REFERENCES membros(codigo) ON DELETE CASCADE
+);
+GO
+
+CREATE INDEX ix_sessoes_token_expiracao ON sessoes(token_hash, expira_em);
+GO
+
+CREATE INDEX ix_redefinicoes_senha_status ON redefinicoes_senha(status, solicitado_em);
+GO
+
 CREATE TABLE musicos (
     codigo INT PRIMARY KEY,
     instrumento NVARCHAR(80) NOT NULL,
@@ -53,6 +86,7 @@ CREATE TABLE tipos_evento (
     codigo_tipo INT IDENTITY(1,1) PRIMARY KEY,
     nome NVARCHAR(50) NOT NULL UNIQUE,
     descricao NVARCHAR(300) NULL,
+    categoria_detalhe NVARCHAR(15) NOT NULL DEFAULT 'EVENTO',
     ativo BIT NOT NULL DEFAULT 1
 );
 GO

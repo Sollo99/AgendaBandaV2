@@ -66,10 +66,10 @@ INSERT INTO locais (nome, endereco, complemento, codigo_cidade) VALUES
 (N'Praca de Eventos', N'Av. Eventos, 1000', N'Palco externo', 9);
 GO
 
-INSERT INTO tipos_evento (nome, descricao, ativo) VALUES
-(N'ENSAIO', N'Encontro para prática e preparação musical.', 1),
-(N'SHOW', N'Apresentação pública da banda.', 1),
-(N'REUNIAO', N'Encontro de organização e planejamento.', 1);
+INSERT INTO tipos_evento (nome, descricao, categoria_detalhe, ativo) VALUES
+(N'ENSAIO', N'Encontro para prática e preparação musical.', N'ENSAIO', 1),
+(N'SHOW', N'Apresentação pública da banda.', N'SHOW', 1),
+(N'REUNIAO', N'Encontro de organização e planejamento.', N'REUNIAO', 1);
 GO
 
 INSERT INTO agenda (titulo, descricao, dt_hora_in, dt_hora_fim, codigo_local, cod_membro_criador) VALUES
