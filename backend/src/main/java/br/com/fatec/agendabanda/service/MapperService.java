@@ -19,7 +19,7 @@ public class MapperService {
     public MembroDto membroDto(Membro membro) {
         var musico = musicoRepository.findById(membro.getCodigo()).orElse(null);
         var produtor = produtorRepository.findById(membro.getCodigo()).orElse(null);
-        String perfil = musico != null ? "MUSICO" : produtor != null ? "PRODUTOR" : "MEMBRO";
+        String perfil = membro.getPerfil();
         return new MembroDto(
                 membro.getCodigo(), membro.getNome(), membro.getCpf(), membro.getEmail(), membro.getLogin(),
                 membro.getAdministrador(), membro.getAtivo(), perfil,
@@ -32,6 +32,14 @@ public class MapperService {
     public CidadeDto cidadeDto(Cidade cidade) {
         if (cidade == null) return null;
         return new CidadeDto(cidade.getCodigoCidade(), cidade.getNome(), cidade.getUf());
+    }
+
+    public MembroResumoDto membroResumoDto(Membro membro) {
+        return new MembroResumoDto(membro.getCodigo(), membro.getNome());
+    }
+
+    public MusicoResumoDto musicoResumoDto(Musico musico) {
+        return new MusicoResumoDto(musico.getCodigo(), musico.getMembro().getNome(), musico.getInstrumento());
     }
 
     public LocalDto localDto(LocalEvento local) {
@@ -49,7 +57,7 @@ public class MapperService {
     public ParticipacaoDto participacaoDto(ParticipacaoEvento participacao) {
         return new ParticipacaoDto(
                 participacao.getAgenda().getCodigoAgenda(),
-                membroDto(participacao.getMusico().getMembro()),
+                musicoResumoDto(participacao.getMusico()),
                 participacao.getStatusConfirmacao(),
                 participacao.getPresente(),
                 participacao.getDataResposta(),

@@ -51,9 +51,10 @@ class AuthServiceTest {
 
     @Test
     void loginEEmailAcessamAMesmaSolicitacaoComAMesmaChave() {
-        when(membroRepository.findByLogin("ana")).thenReturn(Optional.of(membro));
-        when(membroRepository.findByEmailIgnoreCase("ana@example.com")).thenReturn(Optional.of(membro));
-        when(redefinicaoRepository.findTopByMembroCodigoOrderBySolicitadoEmDesc(7)).thenReturn(Optional.of(solicitacao));
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
+        when(membroRepository.buscarCodigoPorIdentificador("ana")).thenReturn(Optional.of(7));
+        when(membroRepository.buscarCodigoPorIdentificador("ana@example.com")).thenReturn(Optional.of(7));
+        when(redefinicaoRepository.findByMembroCodigoAndStatusIn(7, java.util.List.of("PENDENTE", "APROVADA"))).thenReturn(Optional.of(solicitacao));
 
         var porLogin = service.solicitarRedefinicaoSenha(new RecuperarSenhaRequest("ana", CHAVE));
         var porEmail = service.solicitarRedefinicaoSenha(new RecuperarSenhaRequest("ana@example.com", CHAVE));
@@ -65,20 +66,23 @@ class AuthServiceTest {
     }
 
     @Test
-    void outraChaveNaoSubstituiPedidoAprovadoNemRecebeCodigo() {
-        when(membroRepository.findByLogin("ana")).thenReturn(Optional.of(membro));
-        when(redefinicaoRepository.findTopByMembroCodigoOrderBySolicitadoEmDesc(7)).thenReturn(Optional.of(solicitacao));
+    void outraChaveNaoSubstituiPedidoAprovadoNemRecebeAutorizacao() {
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
+        when(membroRepository.buscarCodigoPorIdentificador("ana")).thenReturn(Optional.of(7));
+        when(redefinicaoRepository.findByMembroCodigoAndStatusIn(7, java.util.List.of("PENDENTE", "APROVADA"))).thenReturn(Optional.of(solicitacao));
 
         var resposta = service.solicitarRedefinicaoSenha(new RecuperarSenhaRequest("ana", "outra-chave-sem-permissao"));
 
         assertFalse(resposta.podeRedefinir());
         assertNull(resposta.codigoSolicitacao());
-        assertNull(resposta.codigoRecuperacao());
+        assertEquals("outra-chave-sem-permissao", resposta.codigoRecuperacao());
         verify(redefinicaoRepository, never()).save(any());
     }
 
     @Test
     void idSequencialSemChaveCorretaNaoRedefineSenha() {
+        when(redefinicaoRepository.findById(12)).thenReturn(Optional.of(solicitacao));
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
         when(redefinicaoRepository.findByCodigoRedefinicaoAndStatus(12, "APROVADA")).thenReturn(Optional.of(solicitacao));
 
         assertThrows(IllegalArgumentException.class, () -> service.redefinirSenha(new RedefinirSenhaRequest(12, "incorreta", "novaSenha")));
@@ -87,6 +91,8 @@ class AuthServiceTest {
 
     @Test
     void conclusaoInvalidaSessoesEConsomeSolicitacao() {
+        when(redefinicaoRepository.findById(12)).thenReturn(Optional.of(solicitacao));
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
         when(redefinicaoRepository.findByCodigoRedefinicaoAndStatus(12, "APROVADA")).thenReturn(Optional.of(solicitacao));
 
         service.redefinirSenha(new RedefinirSenhaRequest(12, CHAVE, "novaSenha"));
@@ -95,5 +101,40 @@ class AuthServiceTest {
         assertNotNull(solicitacao.getConcluidoEm());
         verify(membroService).redefinirSenha(membro, "novaSenha");
         verify(tokenService).removerSessoesDoMembro(7);
+    }
+
+    @Test
+    void respostasSaoIguaisParaContaInexistentePendenteInativaEPedidoDeOutroNavegador() {
+        var inexistente = service.solicitarRedefinicaoSenha(new RecuperarSenhaRequest("nao-existe", CHAVE));
+        when(membroRepository.buscarCodigoPorIdentificador("ana")).thenReturn(Optional.of(7));
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
+        solicitacao.setStatus("PENDENTE");
+        when(redefinicaoRepository.findByMembroCodigoAndStatusIn(7, java.util.List.of("PENDENTE", "APROVADA"))).thenReturn(Optional.of(solicitacao));
+        var pendente = service.solicitarRedefinicaoSenha(new RecuperarSenhaRequest("ana", CHAVE));
+        solicitacao.setChaveHash("hash-de-outro-navegador");
+        var outroNavegador = service.solicitarRedefinicaoSenha(new RecuperarSenhaRequest("ana", CHAVE));
+        membro.setAtivo(false);
+        var inativa = service.solicitarRedefinicaoSenha(new RecuperarSenhaRequest("ana", CHAVE));
+        assertEquals(inexistente, pendente);
+        assertEquals(inexistente, outroNavegador);
+        assertEquals(inexistente, inativa);
+        verify(redefinicaoRepository, never()).save(any());
+    }
+
+    @Test
+    void repeticaoDePedidoNaoCriaOutraSolicitacaoPendente() {
+        solicitacao.setStatus("PENDENTE");
+        when(membroRepository.buscarCodigoPorIdentificador("ana")).thenReturn(Optional.of(7));
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
+        when(redefinicaoRepository.findByMembroCodigoAndStatusIn(7, java.util.List.of("PENDENTE", "APROVADA")))
+                .thenReturn(Optional.empty(), Optional.of(solicitacao));
+        var primeiro = service.solicitarRedefinicaoSenha(new RecuperarSenhaRequest("ana", CHAVE));
+        var segundo = service.solicitarRedefinicaoSenha(new RecuperarSenhaRequest("ana", CHAVE));
+        assertEquals(primeiro, segundo);
+        verify(redefinicaoRepository, times(1)).save(any());
+        var ordem = inOrder(membroRepository, redefinicaoRepository);
+        ordem.verify(membroRepository).bloquearPorCodigo(7);
+        ordem.verify(redefinicaoRepository).findByMembroCodigoAndStatusIn(7, java.util.List.of("PENDENTE", "APROVADA"));
+        ordem.verify(redefinicaoRepository).save(any());
     }
 }

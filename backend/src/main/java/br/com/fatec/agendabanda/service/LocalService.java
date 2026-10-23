@@ -6,6 +6,7 @@ import br.com.fatec.agendabanda.dto.LocalRequest;
 import br.com.fatec.agendabanda.model.LocalEvento;
 import br.com.fatec.agendabanda.repository.CidadeRepository;
 import br.com.fatec.agendabanda.repository.LocalEventoRepository;
+import br.com.fatec.agendabanda.repository.AgendaRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,11 +17,13 @@ public class LocalService {
     private final LocalEventoRepository localRepository;
     private final CidadeRepository cidadeRepository;
     private final MapperService mapper;
+    private final AgendaRepository agendaRepository;
 
-    public LocalService(LocalEventoRepository localRepository, CidadeRepository cidadeRepository, MapperService mapper) {
+    public LocalService(LocalEventoRepository localRepository, CidadeRepository cidadeRepository, MapperService mapper, AgendaRepository agendaRepository) {
         this.localRepository = localRepository;
         this.cidadeRepository = cidadeRepository;
         this.mapper = mapper;
+        this.agendaRepository = agendaRepository;
     }
 
     @Transactional(readOnly = true)
@@ -37,26 +40,34 @@ public class LocalService {
         return localRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Local não encontrado."));
     }
 
+    @Transactional
     public LocalDto criar(LocalRequest request) {
         var local = new LocalEvento();
         aplicar(local, request);
         return mapper.localDto(localRepository.save(local));
     }
 
+    @Transactional
     public LocalDto atualizar(Integer id, LocalRequest request) {
         var local = buscarLocal(id);
         aplicar(local, request);
         return mapper.localDto(localRepository.save(local));
     }
 
+    @Transactional
     public void excluir(Integer id) {
-        localRepository.deleteById(id);
+        localRepository.bloquearAgendamento();
+        var local = buscarLocal(id);
+        if (agendaRepository.existsByLocalCodigoLocal(id)) {
+            throw new IllegalArgumentException("O local está vinculado a eventos e não pode ser excluído. Altere o local desses eventos primeiro.");
+        }
+        localRepository.delete(local);
     }
 
     private void aplicar(LocalEvento local, LocalRequest request) {
         var cidade = cidadeRepository.findById(request.cidadeId()).orElseThrow(() -> new IllegalArgumentException("Cidade não encontrada."));
-        local.setNome(request.nome());
-        local.setEndereco(request.endereco());
+        local.setNome(request.nome().trim());
+        local.setEndereco(request.endereco().trim());
         local.setComplemento(request.complemento());
         local.setCidade(cidade);
     }

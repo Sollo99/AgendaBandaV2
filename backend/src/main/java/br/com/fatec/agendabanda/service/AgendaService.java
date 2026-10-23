@@ -11,7 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 
 @Service
 public class AgendaService {
@@ -19,7 +18,7 @@ public class AgendaService {
     private final EnsaioRepository ensaioRepository;
     private final ReuniaoRepository reuniaoRepository;
     private final ShowEventoRepository showRepository;
-    private final EnsaioMusicoRepository ensaioMusicoRepository;
+    private final LocalEventoRepository localRepository;
     private final MusicoRepository musicoRepository;
     private final MembroService membroService;
     private final LocalService localService;
@@ -30,7 +29,7 @@ public class AgendaService {
     private final PermissaoService permissaoService;
 
     public AgendaService(AgendaRepository agendaRepository, EnsaioRepository ensaioRepository, ReuniaoRepository reuniaoRepository,
-                         ShowEventoRepository showRepository, EnsaioMusicoRepository ensaioMusicoRepository, MusicoRepository musicoRepository,
+                         ShowEventoRepository showRepository, LocalEventoRepository localRepository, MusicoRepository musicoRepository,
                          MembroService membroService, LocalService localService,
                          CidadeRepository cidadeRepository, TipoEventoRepository tipoEventoRepository,
                          ParticipacaoEventoRepository participacaoEventoRepository, MapperService mapper, PermissaoService permissaoService) {
@@ -38,7 +37,7 @@ public class AgendaService {
         this.ensaioRepository = ensaioRepository;
         this.reuniaoRepository = reuniaoRepository;
         this.showRepository = showRepository;
-        this.ensaioMusicoRepository = ensaioMusicoRepository;
+        this.localRepository = localRepository;
         this.musicoRepository = musicoRepository;
         this.membroService = membroService;
         this.localService = localService;
@@ -66,33 +65,43 @@ public class AgendaService {
     @Transactional
     public AgendaDto criar(AgendaRequest request, SessaoUsuario sessao) {
         validarPeriodo(request);
+        localRepository.bloquearAgendamento();
         var agenda = new Agenda();
         aplicarDados(agenda, request);
+        var musicosIds = idsUnicos(request.musicosIds());
+        validarDisponibilidade(agenda, musicosIds);
         agenda.setCriador(membroService.buscarEntidade(sessao.codigo()));
         agenda.setCriadoEm(LocalDateTime.now());
         var salvo = agendaRepository.save(agenda);
         salvarDetalhes(salvo, request);
+        sincronizarParticipacoes(salvo, musicosIds);
         return toDto(salvo);
     }
 
     @Transactional
     public AgendaDto atualizar(Integer id, AgendaRequest request, SessaoUsuario sessao) {
         validarPeriodo(request);
+        localRepository.bloquearAgendamento();
         var agenda = buscar(id);
         permissaoService.exigirAdminOuCriador(sessao, agenda);
-        limparDetalhes(id);
+        var musicosIds = request.musicosIds() == null
+                ? participacaoEventoRepository.findByAgendaCodigoAgendaOrderByMusicoMembroNomeAsc(id).stream()
+                    .map(item -> item.getMusico().getCodigo()).toList()
+                : idsUnicos(request.musicosIds());
         aplicarDados(agenda, request);
+        validarDisponibilidade(agenda, musicosIds);
         agenda.setAtualizadoEm(LocalDateTime.now());
         var salvo = agendaRepository.save(agenda);
         salvarDetalhes(salvo, request);
+        sincronizarParticipacoes(salvo, musicosIds);
         return toDto(salvo);
     }
 
     @Transactional
     public void excluir(Integer id, SessaoUsuario sessao) {
+        localRepository.bloquearAgendamento();
         var agenda = buscar(id);
         permissaoService.exigirAdminOuCriador(sessao, agenda);
-        limparDetalhes(id);
         agendaRepository.delete(agenda);
     }
 
@@ -114,42 +123,40 @@ public class AgendaService {
 
     private void salvarDetalhes(Agenda agenda, AgendaRequest request) {
         String tipo = agenda.getTipoEvento().getCategoriaDetalhe();
+        Integer id = agenda.getCodigoAgenda();
+        if (!"ENSAIO".equals(tipo)) ensaioRepository.deleteById(id);
+        if (!"SHOW".equals(tipo)) showRepository.deleteById(id);
+        if (!"REUNIAO".equals(tipo)) reuniaoRepository.deleteById(id);
         if ("ENSAIO".equals(tipo)) {
-            var ensaio = new Ensaio();
+            var ensaio = ensaioRepository.findById(id).orElseGet(Ensaio::new);
             ensaio.setAgenda(agenda);
             ensaio.setRepertorio(request.repertorio() == null || request.repertorio().isBlank() ? "Repertório não informado" : request.repertorio());
             ensaio.setObservacao(request.observacao());
             ensaioRepository.save(ensaio);
-            salvarMusicosEnsaio(ensaio, request.musicosIds());
         } else if ("SHOW".equals(tipo)) {
-            var show = new ShowEvento();
+            var show = showRepository.findById(id).orElseGet(ShowEvento::new);
             show.setAgenda(agenda);
             if (request.cidadeId() == null) throw new IllegalArgumentException("Informe a cidade do show.");
             var cidade = cidadeRepository.findById(request.cidadeId()).orElseThrow(() -> new IllegalArgumentException("Cidade do show não encontrada."));
             show.setCidade(cidade);
             showRepository.save(show);
         } else if ("REUNIAO".equals(tipo)) {
-            var reuniao = new Reuniao();
+            var reuniao = reuniaoRepository.findById(id).orElseGet(Reuniao::new);
             reuniao.setAgenda(agenda);
             reuniao.setPauta(request.pauta() == null || request.pauta().isBlank() ? "Pauta não informada" : request.pauta());
             reuniaoRepository.save(reuniao);
         }
-        salvarParticipacoes(agenda, request.musicosIds());
     }
 
-    private void salvarMusicosEnsaio(Ensaio ensaio, List<Integer> musicosIds) {
-        for (Integer musicoId : idsUnicos(musicosIds)) {
-            var musico = buscarMusico(musicoId);
-            var item = new EnsaioMusico();
-            item.setId(new EnsaioMusicoId(ensaio.getCodigoAgenda(), musico.getCodigo()));
-            item.setEnsaio(ensaio);
-            item.setMusico(musico);
-            ensaioMusicoRepository.save(item);
+    private void sincronizarParticipacoes(Agenda agenda, List<Integer> musicosIds) {
+        var existentes = participacaoEventoRepository.findByAgendaCodigoAgendaOrderByMusicoMembroNomeAsc(agenda.getCodigoAgenda());
+        for (var participacao : existentes) {
+            if (!musicosIds.contains(participacao.getMusico().getCodigo())) {
+                participacaoEventoRepository.delete(participacao);
+            }
         }
-    }
-
-    private void salvarParticipacoes(Agenda agenda, List<Integer> musicosIds) {
-        for (Integer musicoId : idsUnicos(musicosIds)) {
+        for (Integer musicoId : musicosIds) {
+            if (existentes.stream().anyMatch(item -> item.getMusico().getCodigo().equals(musicoId))) continue;
             var musico = buscarMusico(musicoId);
             var participacao = new ParticipacaoEvento();
             participacao.setId(new ParticipacaoEventoId(agenda.getCodigoAgenda(), musico.getCodigo()));
@@ -169,15 +176,27 @@ public class AgendaService {
     }
 
     private Musico buscarMusico(Integer codigoMusico) {
-        return musicoRepository.findById(codigoMusico).orElseThrow(() -> new IllegalArgumentException("Músico não encontrado."));
+        var musico = musicoRepository.findById(codigoMusico).orElseThrow(() -> new IllegalArgumentException("Músico não encontrado."));
+        if (!Boolean.TRUE.equals(musico.getMembro().getAtivo())) {
+            throw new IllegalArgumentException("Não é possível incluir um músico inativo no evento.");
+        }
+        return musico;
     }
 
-    private void limparDetalhes(Integer id) {
-        participacaoEventoRepository.deleteByAgendaCodigoAgenda(id);
-        ensaioMusicoRepository.deleteByEnsaioCodigoAgenda(id);
-        ensaioRepository.deleteById(id);
-        reuniaoRepository.deleteById(id);
-        showRepository.deleteById(id);
+    private void validarDisponibilidade(Agenda agenda, List<Integer> musicosIds) {
+        if ("CANCELADO".equals(agenda.getStatus())) return;
+        for (var outro : agendaRepository.buscarSobrepostos(agenda.getDataHoraInicio(), agenda.getDataHoraFim(), agenda.getCodigoAgenda())) {
+            if (outro.getLocal().getCodigoLocal().equals(agenda.getLocal().getCodigoLocal())) {
+                throw new IllegalArgumentException("O local já está ocupado pelo evento \"" + outro.getTitulo() + "\" neste horário.");
+            }
+            var participantes = participacaoEventoRepository.findByAgendaCodigoAgendaOrderByMusicoMembroNomeAsc(outro.getCodigoAgenda());
+            for (var participacao : participantes) {
+                if (musicosIds.contains(participacao.getMusico().getCodigo())) {
+                    throw new IllegalArgumentException("O músico " + participacao.getMusico().getMembro().getNome()
+                            + " já está vinculado ao evento \"" + outro.getTitulo() + "\" neste horário.");
+                }
+            }
+        }
     }
 
     private void validarPeriodo(AgendaRequest request) {
@@ -193,12 +212,12 @@ public class AgendaService {
         String tipoEspecifico = agenda.getTipoEvento().getCategoriaDetalhe();
         var participacoes = participacaoEventoRepository.findByAgendaCodigoAgendaOrderByMusicoMembroNomeAsc(agenda.getCodigoAgenda());
         var musicos = participacoes.stream()
-                .map(item -> mapper.membroDto(item.getMusico().getMembro()))
+                .map(item -> mapper.musicoResumoDto(item.getMusico()))
                 .toList();
 
         return new AgendaDto(
                 agenda.getCodigoAgenda(), agenda.getTitulo(), agenda.getDescricao(), agenda.getDataHoraInicio(), agenda.getDataHoraFim(),
-                mapper.localDto(agenda.getLocal()), mapper.membroDto(agenda.getCriador()),
+                mapper.localDto(agenda.getLocal()), mapper.membroResumoDto(agenda.getCriador()),
                 mapper.tipoEventoDto(agenda.getTipoEvento()), agenda.getStatus(),
                 tipoEspecifico,
                 ensaio != null ? ensaio.getRepertorio() : null,

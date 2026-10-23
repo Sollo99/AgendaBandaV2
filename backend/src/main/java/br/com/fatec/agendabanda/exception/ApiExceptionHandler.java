@@ -2,6 +2,8 @@ package br.com.fatec.agendabanda.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -10,6 +12,18 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, String>> erroIntegridade(DataIntegrityViolationException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("erro",
+                "Não foi possível salvar ou excluir: há dados duplicados, inválidos ou vínculos com outros registros."));
+    }
+
+    @ExceptionHandler(ConcurrencyFailureException.class)
+    public ResponseEntity<Map<String, String>> erroConcorrencia(ConcurrencyFailureException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("erro",
+                "Outro usuário está alterando esses dados. Aguarde e tente novamente."));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> erroRegra(IllegalArgumentException ex) {
         return ResponseEntity.badRequest().body(Map.of("erro", ex.getMessage()));

@@ -9,7 +9,7 @@ import java.util.Optional;
 import java.util.List;
 
 public interface RedefinicaoSenhaRepository extends JpaRepository<RedefinicaoSenha, Integer> {
-    Optional<RedefinicaoSenha> findTopByMembroCodigoOrderBySolicitadoEmDesc(Integer codigoMembro);
+    Optional<RedefinicaoSenha> findByMembroCodigoAndStatusIn(Integer codigoMembro, List<String> status);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<RedefinicaoSenha> findByCodigoRedefinicaoAndStatus(Integer codigoRedefinicao, String status);
     List<RedefinicaoSenha> findByStatusOrderBySolicitadoEmAsc(String status);

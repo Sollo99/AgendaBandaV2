@@ -18,11 +18,14 @@ public class Membro {
     private String senha;
     private Boolean administrador;
     private Boolean ativo;
+    private String perfil = "MEMBRO";
 
     @Column(name = "criado_em")
     private LocalDateTime criadoEm;
 
     public Integer getCodigo() { return codigo; }
+    public String getPerfil() { return perfil; }
+    public void setPerfil(String perfil) { this.perfil = perfil; }
     public void setCodigo(Integer codigo) { this.codigo = codigo; }
     public String getNome() { return nome; }
     public void setNome(String nome) { this.nome = nome; }
