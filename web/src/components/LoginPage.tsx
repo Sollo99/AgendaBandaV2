@@ -117,19 +117,19 @@ export default function LoginPage({ onLogin }: { onLogin: (usuario: Membro) => v
             {erro && <Text color="red.500">{erro}</Text>}
 
             {modo === "login" && <Stack gap="4" as="form" onSubmit={entrar}>
-              <Box><Text mb="2">Login</Text><Input value={login} onChange={(e) => setLogin(e.target.value)} /></Box>
-              <Box><Text mb="2">Senha</Text><Input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} /></Box>
+              <Box><Text mb="2">Login</Text><Input maxLength={50} value={login} onChange={(e) => setLogin(e.target.value)} /></Box>
+              <Box><Text mb="2">Senha</Text><Input maxLength={72} type="password" value={senha} onChange={(e) => setSenha(e.target.value)} /></Box>
               <Button type="submit" loading={carregando}>Entrar</Button>
               <Button type="button" variant="outline" onClick={() => trocarModo("cadastro")}>Criar conta</Button>
               <Button type="button" variant="ghost" onClick={() => trocarModo("recuperar")}>Esqueci minha senha</Button>
             </Stack>}
 
             {modo === "cadastro" && <Stack gap="4" as="form" onSubmit={cadastrar}>
-              <Box><Text mb="2">Nome</Text><Input value={cadastro.nome} onChange={(e) => setCadastro({ ...cadastro, nome: e.target.value })} required /></Box>
-              <Box><Text mb="2">CPF</Text><Input value={cadastro.cpf} onChange={(e) => setCadastro({ ...cadastro, cpf: e.target.value })} required /></Box>
-              <Box><Text mb="2">E-mail</Text><Input type="email" value={cadastro.email} onChange={(e) => setCadastro({ ...cadastro, email: e.target.value })} required /></Box>
-              <Box><Text mb="2">Login</Text><Input value={cadastro.login} onChange={(e) => setCadastro({ ...cadastro, login: e.target.value })} required /></Box>
-              <Box><Text mb="2">Senha</Text><Input type="password" minLength={6} value={cadastro.senha} onChange={(e) => setCadastro({ ...cadastro, senha: e.target.value })} required /></Box>
+              <Box><Text mb="2">Nome</Text><Input maxLength={100} value={cadastro.nome} onChange={(e) => setCadastro({ ...cadastro, nome: e.target.value })} required /></Box>
+              <Box><Text mb="2">CPF</Text><Input maxLength={14} value={cadastro.cpf} onChange={(e) => setCadastro({ ...cadastro, cpf: e.target.value })} required /></Box>
+              <Box><Text mb="2">E-mail</Text><Input maxLength={120} type="email" value={cadastro.email} onChange={(e) => setCadastro({ ...cadastro, email: e.target.value })} required /></Box>
+              <Box><Text mb="2">Login</Text><Input maxLength={50} value={cadastro.login} onChange={(e) => setCadastro({ ...cadastro, login: e.target.value })} required /></Box>
+              <Box><Text mb="2">Senha</Text><Input maxLength={72} type="password" minLength={6} value={cadastro.senha} onChange={(e) => setCadastro({ ...cadastro, senha: e.target.value })} required /></Box>
               <Box><Text mb="2">Instrumento</Text><Input maxLength={80} value={cadastro.instrumento} onChange={(e) => setCadastro({ ...cadastro, instrumento: e.target.value })} /></Box>
               <Box><Text mb="2">Biografia (opcional)</Text><Input maxLength={500} value={cadastro.biografia} onChange={(e) => setCadastro({ ...cadastro, biografia: e.target.value })} /></Box>
               <Button type="submit" loading={carregando}>Cadastrar</Button>
@@ -137,16 +137,16 @@ export default function LoginPage({ onLogin }: { onLogin: (usuario: Membro) => v
             </Stack>}
 
             {modo === "recuperar" && <Stack gap="4" as="form" onSubmit={solicitarRedefinicao}>
-              <Box><Text mb="2">Login ou e-mail</Text><Input value={identificador} onChange={(e) => setIdentificador(e.target.value)} required /></Box>
+              <Box><Text mb="2">Login ou e-mail</Text><Input maxLength={120} value={identificador} onChange={(e) => setIdentificador(e.target.value)} required /></Box>
               <Box><Text mb="2">Código de recuperação (se estiver em outro navegador)</Text><Input value={codigoInformado} minLength={32} maxLength={128} autoComplete="off" onChange={(e) => setCodigoInformado(e.target.value)} /><Text fontSize="sm" color="fg.muted">Deixe vazio para usar a solicitação deste navegador.</Text></Box>
-              {codigoRecuperacao && <Box><Text mb="2">Guarde seu código de recuperação</Text><Input value={codigoRecuperacao} readOnly autoComplete="off" /><Text fontSize="sm" color="fg.muted">Ele permite continuar em outro navegador após a aprovação. Não compartilhe este código.</Text></Box>}
+              {codigoRecuperacao && <Box><Text mb="2">Guarde seu código de recuperação</Text><Input value={codigoRecuperacao} readOnly autoComplete="off" /><Text fontSize="sm" color="fg.muted">Use este código em outro navegador. Se já havia um pedido aberto, o código original continua necessário. Não compartilhe.</Text></Box>}
               <Button type="submit" loading={carregando}>Solicitar redefinição</Button>
               <Button type="button" variant="ghost" onClick={() => trocarModo("login")}>Voltar ao login</Button>
             </Stack>}
 
             {modo === "redefinir" && <Stack gap="4" as="form" onSubmit={redefinirSenha}>
-              <Box><Text mb="2">Nova senha</Text><Input type="password" minLength={6} value={novaSenha} onChange={(e) => setNovaSenha(e.target.value)} required /></Box>
-              <Box><Text mb="2">Confirmar nova senha</Text><Input type="password" minLength={6} value={confirmacaoSenha} onChange={(e) => setConfirmacaoSenha(e.target.value)} required /></Box>
+              <Box><Text mb="2">Nova senha</Text><Input maxLength={72} type="password" minLength={6} value={novaSenha} onChange={(e) => setNovaSenha(e.target.value)} required /></Box>
+              <Box><Text mb="2">Confirmar nova senha</Text><Input maxLength={72} type="password" minLength={6} value={confirmacaoSenha} onChange={(e) => setConfirmacaoSenha(e.target.value)} required /></Box>
               <Button type="submit" loading={carregando}>Redefinir senha</Button>
               <Button type="button" variant="ghost" onClick={() => trocarModo("login")}>Voltar ao login</Button>
             </Stack>}

@@ -21,6 +21,7 @@ export default function LocaisPage() {
 
   async function salvar(e: SyntheticEvent) {
     e.preventDefault();
+    setErro("");
     const payload = { ...form, cidadeId: Number(form.cidadeId) };
     try {
       if (editando) await api.atualizarLocal(editando, payload);
@@ -33,12 +34,27 @@ export default function LocaisPage() {
     }
   }
 
+  async function excluir(local: LocalEvento) {
+    if (!confirm(`Excluir o local "${local.nome}"?`)) return;
+    setErro("");
+    try {
+      await api.excluirLocal(local.codigoLocal);
+      if (editando === local.codigoLocal) {
+        setForm({ ...vazio });
+        setEditando(null);
+      }
+      await carregar();
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : "Erro ao excluir local.");
+    }
+  }
+
   return (
     <Stack gap="5">
       <Box><Text fontSize="2xl" fontWeight="bold">Locais</Text><Text color="fg.muted">Cadastro de locais usados nos eventos.</Text></Box>
       {erro && <Text color="red.500">{erro}</Text>}
-      <Card.Root borderRadius="2xl"><Card.Body><Stack as="form" gap="4" onSubmit={salvar}><Grid templateColumns={{ base: "1fr", md: "repeat(4, 1fr)" }} gap="4"><Box><Text mb="1">Nome</Text><Input value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required /></Box><Box><Text mb="1">Endereço</Text><Input value={form.endereco} onChange={(e) => setForm({ ...form, endereco: e.target.value })} required /></Box><Box><Text mb="1">Complemento</Text><Input value={form.complemento} onChange={(e) => setForm({ ...form, complemento: e.target.value })} /></Box><Box><Text mb="1">Cidade</Text><select className="native-field" value={form.cidadeId} onChange={(e) => setForm({ ...form, cidadeId: e.target.value })} required><option value="">Selecione</option>{cidades.map((c) => <option key={c.codigoCidade} value={c.codigoCidade}>{c.nome}/{c.uf}</option>)}</select></Box></Grid><HStack><Button type="submit">Salvar</Button><Button type="button" variant="outline" onClick={() => { setForm({ ...vazio }); setEditando(null); }}>Limpar</Button></HStack></Stack></Card.Body></Card.Root>
-      <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)" }} gap="3">{locais.map((l) => <Card.Root key={l.codigoLocal} borderRadius="2xl"><Card.Body><Stack><Text fontWeight="bold">{l.nome}</Text><Text>{l.endereco} {l.complemento}</Text><Text>{l.cidadeNome}/{l.uf}</Text><Button size="sm" onClick={() => { setEditando(l.codigoLocal); setForm({ nome: l.nome, endereco: l.endereco, complemento: l.complemento ?? "", cidadeId: String(l.cidadeId) }); }}>Editar</Button></Stack></Card.Body></Card.Root>)}</Grid>
+      <Card.Root borderRadius="2xl"><Card.Body><Stack as="form" gap="4" onSubmit={salvar}><Grid templateColumns={{ base: "1fr", md: "repeat(4, 1fr)" }} gap="4"><Box><Text mb="1">Nome</Text><Input maxLength={120} value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required /></Box><Box><Text mb="1">Endereço</Text><Input maxLength={180} value={form.endereco} onChange={(e) => setForm({ ...form, endereco: e.target.value })} required /></Box><Box><Text mb="1">Complemento</Text><Input maxLength={120} value={form.complemento} onChange={(e) => setForm({ ...form, complemento: e.target.value })} /></Box><Box><Text mb="1">Cidade</Text><select className="native-field" value={form.cidadeId} onChange={(e) => setForm({ ...form, cidadeId: e.target.value })} required><option value="">Selecione</option>{cidades.map((c) => <option key={c.codigoCidade} value={c.codigoCidade}>{c.nome}/{c.uf}</option>)}</select></Box></Grid><HStack><Button type="submit">Salvar</Button><Button type="button" variant="outline" onClick={() => { setForm({ ...vazio }); setEditando(null); }}>Limpar</Button></HStack></Stack></Card.Body></Card.Root>
+      <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)" }} gap="3">{locais.map((l) => <Card.Root key={l.codigoLocal} borderRadius="2xl"><Card.Body><Stack><Text fontWeight="bold">{l.nome}</Text><Text>{l.endereco} {l.complemento}</Text><Text>{l.cidadeNome}/{l.uf}</Text><HStack><Button size="sm" onClick={() => { setEditando(l.codigoLocal); setForm({ nome: l.nome, endereco: l.endereco, complemento: l.complemento ?? "", cidadeId: String(l.cidadeId) }); }}>Editar</Button><Button size="sm" variant="outline" onClick={() => excluir(l)}>Excluir</Button></HStack></Stack></Card.Body></Card.Root>)}</Grid>
     </Stack>
   );
 }
