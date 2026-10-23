@@ -11,17 +11,20 @@ classDiagram
         String senha
         Bit administrador
         Bit ativo
+        String perfil
         DateTime criado_em
     }
 
     class Musico {
         int codigo
+        String perfil
         String instrumento
         String biografia
     }
 
     class Produtor {
         int codigo
+        String perfil
         String especialidade
     }
 
@@ -69,15 +72,11 @@ classDiagram
         String pauta
     }
 
-    class EnsaioMusico {
-        int codigo_agenda
-        int cod_musico
-    }
-
     class TipoEvento {
         int codigo_tipo
         String nome
         String descricao
+        String categoria_detalhe
         Bit ativo
     }
 
@@ -101,6 +100,14 @@ classDiagram
         DateTime concluido_em
     }
 
+    class SessaoPersistida {
+        int codigo_sessao
+        String token_hash
+        int codigo_membro
+        DateTime criado_em
+        DateTime expira_em
+    }
+
     Membro "1" --> "0..1" Musico : possui perfil
     Membro "1" --> "0..1" Produtor : possui perfil
     Membro "1" --> "0..*" Agenda : cria
@@ -111,10 +118,15 @@ classDiagram
     Agenda "1" --> "0..1" Ensaio : detalha
     Agenda "1" --> "0..1" Show : detalha
     Agenda "1" --> "0..1" Reuniao : detalha
-    Ensaio "1" --> "0..*" EnsaioMusico : vincula
-    Musico "1" --> "0..*" EnsaioMusico : participa
     Agenda "1" --> "0..*" ParticipacaoEvento : registra
     Musico "1" --> "0..*" ParticipacaoEvento : participa
     Membro "1" --> "0..*" RedefinicaoSenha : solicita
     Membro "0..1" --> "0..*" RedefinicaoSenha : decide
+    Membro "1" --> "0..*" SessaoPersistida : autentica
 ```
+
+O membro possui um único perfil operacional: `MEMBRO`, `MUSICO` ou `PRODUTOR`. Os subtipos usam uma FK composta `(codigo, perfil)` para `membros`, com `perfil` fixo no respectivo subtipo. Isso impede que o mesmo código esteja nas duas tabelas de perfil. O indicador `administrador` é independente dessa classificação.
+
+`ParticipacaoEvento` é o único vínculo de músicos com qualquer evento, incluindo ensaios. A chave composta impede duplicação do mesmo músico no mesmo evento. Um índice filtrado garante uma única solicitação de senha aberta (`PENDENTE` ou `APROVADA`) por membro.
+
+Membros são desativados para preservar seus vínculos. Locais com qualquer evento vinculado não podem ser excluídos, mesmo se o evento estiver cancelado ou realizado.
