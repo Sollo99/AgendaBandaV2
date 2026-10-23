@@ -10,7 +10,6 @@ GO
 DROP TABLE IF EXISTS sessoes;
 DROP TABLE IF EXISTS redefinicoes_senha;
 DROP TABLE IF EXISTS participacao_evento;
-DROP TABLE IF EXISTS ensaio_musicos;
 DROP TABLE IF EXISTS shows;
 DROP TABLE IF EXISTS reunioes;
 DROP TABLE IF EXISTS ensaios;
@@ -32,7 +31,11 @@ CREATE TABLE membros (
     senha NVARCHAR(255) NOT NULL,
     administrador BIT NOT NULL DEFAULT 0,
     ativo BIT NOT NULL DEFAULT 1,
-    criado_em DATETIME2 NOT NULL DEFAULT SYSDATETIME()
+    perfil NVARCHAR(10) NOT NULL DEFAULT N'MEMBRO',
+    criado_em DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    CONSTRAINT ck_membros_perfil CHECK (perfil IN (N'MEMBRO', N'MUSICO', N'PRODUTOR')),
+    CONSTRAINT uq_membros_codigo_perfil UNIQUE (codigo, perfil),
+    CONSTRAINT ck_membros_cpf CHECK (LEN(cpf) = 11 AND cpf NOT LIKE '%[^0-9]%')
 );
 GO
 
@@ -67,18 +70,26 @@ GO
 CREATE INDEX ix_redefinicoes_senha_status ON redefinicoes_senha(status, solicitado_em);
 GO
 
+CREATE UNIQUE INDEX ux_redefinicoes_senha_aberta ON redefinicoes_senha(codigo_membro)
+    WHERE status IN ('PENDENTE', 'APROVADA');
+GO
+
 CREATE TABLE musicos (
     codigo INT PRIMARY KEY,
+    perfil NVARCHAR(10) NOT NULL DEFAULT N'MUSICO',
     instrumento NVARCHAR(80) NOT NULL,
     biografia NVARCHAR(500) NULL,
-    CONSTRAINT fk_musicos_membros FOREIGN KEY (codigo) REFERENCES membros(codigo)
+    CONSTRAINT ck_musicos_perfil CHECK (perfil = N'MUSICO'),
+    CONSTRAINT fk_musicos_membros FOREIGN KEY (codigo, perfil) REFERENCES membros(codigo, perfil)
 );
 GO
 
 CREATE TABLE produtores (
     codigo INT PRIMARY KEY,
+    perfil NVARCHAR(10) NOT NULL DEFAULT N'PRODUTOR',
     especialidade NVARCHAR(100) NOT NULL,
-    CONSTRAINT fk_produtores_membros FOREIGN KEY (codigo) REFERENCES membros(codigo)
+    CONSTRAINT ck_produtores_perfil CHECK (perfil = N'PRODUTOR'),
+    CONSTRAINT fk_produtores_membros FOREIGN KEY (codigo, perfil) REFERENCES membros(codigo, perfil)
 );
 GO
 
@@ -151,15 +162,6 @@ CREATE TABLE shows (
 );
 GO
 
-CREATE TABLE ensaio_musicos (
-    codigo_agenda INT NOT NULL,
-    cod_musico INT NOT NULL,
-    PRIMARY KEY (codigo_agenda, cod_musico),
-    CONSTRAINT fk_ensaio_musicos_ensaio FOREIGN KEY (codigo_agenda) REFERENCES ensaios(codigo_agenda) ON DELETE CASCADE,
-    CONSTRAINT fk_ensaio_musicos_musico FOREIGN KEY (cod_musico) REFERENCES musicos(codigo)
-);
-GO
-
 CREATE TABLE participacao_evento (
     codigo_agenda INT NOT NULL,
     cod_musico INT NOT NULL,
@@ -172,4 +174,8 @@ CREATE TABLE participacao_evento (
     CONSTRAINT fk_participacao_evento_musico FOREIGN KEY (cod_musico) REFERENCES musicos(codigo),
     CONSTRAINT ck_participacao_status CHECK (status_confirmacao IN (N'PENDENTE', N'CONFIRMADO', N'RECUSADO'))
 );
+GO
+
+CREATE INDEX ix_agenda_periodo ON agenda(dt_hora_in, dt_hora_fim) INCLUDE (codigo_local, status);
+CREATE INDEX ix_participacao_musico ON participacao_evento(cod_musico, codigo_agenda);
 GO

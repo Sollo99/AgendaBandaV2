@@ -7,10 +7,7 @@ import br.com.fatec.agendabanda.model.Produtor;
 import br.com.fatec.agendabanda.repository.MembroRepository;
 import br.com.fatec.agendabanda.repository.MusicoRepository;
 import br.com.fatec.agendabanda.repository.ProdutorRepository;
-import br.com.fatec.agendabanda.repository.AgendaRepository;
 import br.com.fatec.agendabanda.repository.ParticipacaoEventoRepository;
-import br.com.fatec.agendabanda.repository.EnsaioMusicoRepository;
-import br.com.fatec.agendabanda.repository.RedefinicaoSenhaRepository;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,24 +23,17 @@ public class MembroService {
     private final ProdutorRepository produtorRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final MapperService mapperService;
-    private final AgendaRepository agendaRepository;
     private final ParticipacaoEventoRepository participacaoRepository;
-    private final EnsaioMusicoRepository ensaioMusicoRepository;
-    private final RedefinicaoSenhaRepository redefinicaoSenhaRepository;
 
     public MembroService(MembroRepository membroRepository, MusicoRepository musicoRepository, ProdutorRepository produtorRepository,
                          BCryptPasswordEncoder passwordEncoder, MapperService mapperService,
-                         AgendaRepository agendaRepository, ParticipacaoEventoRepository participacaoRepository,
-                         EnsaioMusicoRepository ensaioMusicoRepository, RedefinicaoSenhaRepository redefinicaoSenhaRepository) {
+                         ParticipacaoEventoRepository participacaoRepository) {
         this.membroRepository = membroRepository;
         this.musicoRepository = musicoRepository;
         this.produtorRepository = produtorRepository;
         this.passwordEncoder = passwordEncoder;
         this.mapperService = mapperService;
-        this.agendaRepository = agendaRepository;
         this.participacaoRepository = participacaoRepository;
-        this.ensaioMusicoRepository = ensaioMusicoRepository;
-        this.redefinicaoSenhaRepository = redefinicaoSenhaRepository;
     }
 
     @Transactional(readOnly = true)
@@ -78,7 +68,10 @@ public class MembroService {
 
     @Transactional
     public MembroDto atualizar(Integer id, MembroRequest request) {
+        var administradores = membroRepository.bloquearAdministradoresAtivos();
         var membro = buscarEntidade(id);
+        protegerUltimoAdministrador(membro, Boolean.TRUE.equals(request.administrador()),
+                request.ativo() == null || request.ativo(), administradores);
         validarUnicidade(request.cpf(), request.email(), request.login(), id);
         aplicarDados(membro, request);
         if (request.senha() != null && !request.senha().isBlank()) {
@@ -91,7 +84,9 @@ public class MembroService {
 
     @Transactional
     public MembroDto alterarStatus(Integer id, boolean ativo) {
+        var administradores = membroRepository.bloquearAdministradoresAtivos();
         var membro = buscarEntidade(id);
+        protegerUltimoAdministrador(membro, Boolean.TRUE.equals(membro.getAdministrador()), ativo, administradores);
         membro.setAtivo(ativo);
         return mapperService.membroDto(membroRepository.save(membro));
     }
@@ -101,12 +96,13 @@ public class MembroService {
         validarUnicidade(request.cpf(), request.email(), request.login(), null);
         var membro = new Membro();
         membro.setNome(request.nome().trim());
-        membro.setCpf(request.cpf().trim());
+        membro.setCpf(normalizarCpf(request.cpf()));
         membro.setEmail(request.email().trim());
         membro.setLogin(request.login().trim());
         membro.setSenha(passwordEncoder.encode(request.senha()));
         membro.setAdministrador(false);
         membro.setAtivo(true);
+        membro.setPerfil("MUSICO");
         membro.setCriadoEm(LocalDateTime.now());
         var salvo = membroRepository.save(membro);
         var musico = new Musico();
@@ -127,7 +123,7 @@ public class MembroService {
         var membro = buscarEntidade(codigoMembro);
         validarUnicidade(request.cpf(), request.email(), request.login(), codigoMembro);
         membro.setNome(request.nome().trim());
-        membro.setCpf(request.cpf().trim());
+        membro.setCpf(normalizarCpf(request.cpf()));
         membro.setEmail(request.email().trim());
         membro.setLogin(request.login().trim());
         if (request.novaSenha() != null && !request.novaSenha().isBlank()) {
@@ -151,23 +147,9 @@ public class MembroService {
         membroRepository.save(membro);
     }
 
-    @Transactional
-    public void excluir(Integer id) {
-        var membro = buscarEntidade(id);
-        exigirMusicoSemVinculos(id);
-        if (agendaRepository.existsByCriadorCodigo(id) || redefinicaoSenhaRepository.existsByAdministradorCodigo(id)) {
-            throw new IllegalArgumentException("O membro possui eventos criados ou decisões de recuperação de senha. Desative-o para preservar o histórico.");
-        }
-        musicoRepository.findById(id).ifPresent(musicoRepository::delete);
-        produtorRepository.findById(id).ifPresent(produtorRepository::delete);
-        musicoRepository.flush();
-        produtorRepository.flush();
-        membroRepository.delete(membro);
-    }
-
     private void aplicarDados(Membro membro, MembroRequest request) {
         membro.setNome(request.nome().trim());
-        membro.setCpf(request.cpf().trim());
+        membro.setCpf(normalizarCpf(request.cpf()));
         membro.setEmail(request.email().trim());
         membro.setLogin(request.login().trim());
         membro.setAdministrador(Boolean.TRUE.equals(request.administrador()));
@@ -181,7 +163,7 @@ public class MembroService {
         membroRepository.findByEmailIgnoreCase(email.trim())
                 .filter(membro -> !membro.getCodigo().equals(codigoAtual))
                 .ifPresent(membro -> { throw new IllegalArgumentException("E-mail já cadastrado."); });
-        membroRepository.findByCpf(cpf.trim())
+        membroRepository.findByCpf(normalizarCpf(cpf))
                 .filter(membro -> !membro.getCodigo().equals(codigoAtual))
                 .ifPresent(membro -> { throw new IllegalArgumentException("CPF já cadastrado."); });
     }
@@ -200,6 +182,11 @@ public class MembroService {
         if (!"PRODUTOR".equals(perfil) && produtorExistente.isPresent()) {
             produtorRepository.delete(produtorExistente.get());
         }
+        // Remove o subtipo antigo antes de alterar o discriminador referenciado pela FK composta.
+        musicoRepository.flush();
+        produtorRepository.flush();
+        membro.setPerfil(perfil);
+        membroRepository.saveAndFlush(membro);
         if ("MUSICO".equals(perfil)) {
             var musico = musicoExistente.orElseGet(Musico::new);
             musico.setMembro(membro);
@@ -216,9 +203,20 @@ public class MembroService {
     }
 
     private void exigirMusicoSemVinculos(Integer id) {
-        if (participacaoRepository.existsByMusicoCodigo(id) || ensaioMusicoRepository.existsByMusicoCodigo(id)) {
-            throw new IllegalArgumentException("O músico possui participações em eventos. Desative o membro em vez de excluir ou remover seu perfil de músico.");
+        if (participacaoRepository.existsByMusicoCodigo(id)) {
+            throw new IllegalArgumentException("O músico possui participações em eventos. Desative o membro em vez de remover seu perfil de músico.");
         }
+    }
+
+    private void protegerUltimoAdministrador(Membro membro, boolean administrador, boolean ativo, List<Membro> administradoresAtivos) {
+        if (Boolean.TRUE.equals(membro.getAdministrador()) && Boolean.TRUE.equals(membro.getAtivo())
+                && (!administrador || !ativo) && administradoresAtivos.size() <= 1) {
+            throw new IllegalArgumentException("É necessário manter pelo menos um administrador ativo. Cadastre ou ative outro administrador primeiro.");
+        }
+    }
+
+    private String normalizarCpf(String cpf) {
+        return cpf.replaceAll("[^0-9]", "");
     }
 
     private String textoOuPadrao(String valor) {

@@ -1,17 +1,17 @@
 USE AgendaBanda;
 GO
 
-INSERT INTO membros (nome, cpf, email, login, senha, administrador, ativo) VALUES
-(N'Administrador', N'000.000.000-00', N'admin@banda.local', N'admin', '$2y$05$3FRvl9fdRnF5fEOqIBW2VerMK840C3RA6xwC2CPcO5agcuRYHtXqm', 1, 1),
-(N'Usuario Teste', N'111.111.111-11', N'usuario@banda.local', N'usuario', '$2y$05$3oagEcFOHAlQPEa9TM3fM.LVLxw1bbB7GbcAuRfhuN8ySQnqheWzi', 0, 1),
-(N'Conta Teste', N'222.222.222-22', N'teste@banda.local', N'teste', '$2y$05$jhAVJlRJeb71xVRK7EqRmuV9X1J3.vr1zfZHgK2hIYUN.4liQN52G', 0, 1),
-(N'Ana Silva', N'333.333.333-33', N'ana@banda.local', N'ana', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1),
-(N'Bruno Costa', N'444.444.444-44', N'bruno@banda.local', N'bruno', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1),
-(N'Carla Souza', N'555.555.555-55', N'carla@banda.local', N'carla', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1),
-(N'Diego Lima', N'666.666.666-66', N'diego@banda.local', N'diego', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1),
-(N'Elisa Rocha', N'777.777.777-77', N'elisa@banda.local', N'elisa', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1),
-(N'Felipe Martins', N'888.888.888-88', N'felipe@banda.local', N'felipe', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1),
-(N'Gabriela Alves', N'999.999.999-99', N'gabriela@banda.local', N'gabriela', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1);
+INSERT INTO membros (nome, cpf, email, login, senha, administrador, ativo, perfil) VALUES
+(N'Administrador', N'90000000175', N'admin@banda.local', N'admin', '$2y$05$3FRvl9fdRnF5fEOqIBW2VerMK840C3RA6xwC2CPcO5agcuRYHtXqm', 1, 1, N'MUSICO'),
+(N'Usuario Teste', N'90000000256', N'usuario@banda.local', N'usuario', '$2y$05$3oagEcFOHAlQPEa9TM3fM.LVLxw1bbB7GbcAuRfhuN8ySQnqheWzi', 0, 1, N'MUSICO'),
+(N'Conta Teste', N'90000000337', N'teste@banda.local', N'teste', '$2y$05$jhAVJlRJeb71xVRK7EqRmuV9X1J3.vr1zfZHgK2hIYUN.4liQN52G', 0, 1, N'MUSICO'),
+(N'Ana Silva', N'90000000418', N'ana@banda.local', N'ana', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'MUSICO'),
+(N'Bruno Costa', N'90000000507', N'bruno@banda.local', N'bruno', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'MUSICO'),
+(N'Carla Souza', N'90000000680', N'carla@banda.local', N'carla', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'MUSICO'),
+(N'Diego Lima', N'90000000760', N'diego@banda.local', N'diego', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'MUSICO'),
+(N'Elisa Rocha', N'90000000841', N'elisa@banda.local', N'elisa', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'MUSICO'),
+(N'Felipe Martins', N'90000000922', N'felipe@banda.local', N'felipe', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'MUSICO'),
+(N'Gabriela Alves', N'90000001066', N'gabriela@banda.local', N'gabriela', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'MUSICO');
 GO
 
 INSERT INTO musicos (codigo, instrumento, biografia) VALUES
@@ -27,17 +27,30 @@ INSERT INTO musicos (codigo, instrumento, biografia) VALUES
 (10, N'Backing vocal', N'Apoio vocal nas musicas.');
 GO
 
+INSERT INTO membros (nome, cpf, email, login, senha, administrador, ativo, perfil) VALUES
+(N'Produtor demonstracao 1', N'90000001147', N'produtor1@banda.local', N'produtor1', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'PRODUTOR'),
+(N'Produtor demonstracao 2', N'90000001228', N'produtor2@banda.local', N'produtor2', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'PRODUTOR'),
+(N'Produtor demonstracao 3', N'90000001309', N'produtor3@banda.local', N'produtor3', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'PRODUTOR'),
+(N'Produtor demonstracao 4', N'90000001490', N'produtor4@banda.local', N'produtor4', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'PRODUTOR'),
+(N'Produtor demonstracao 5', N'90000001570', N'produtor5@banda.local', N'produtor5', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'PRODUTOR'),
+(N'Produtor demonstracao 6', N'90000001651', N'produtor6@banda.local', N'produtor6', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'PRODUTOR'),
+(N'Produtor demonstracao 7', N'90000001732', N'produtor7@banda.local', N'produtor7', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'PRODUTOR'),
+(N'Produtor demonstracao 8', N'90000001813', N'produtor8@banda.local', N'produtor8', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'PRODUTOR'),
+(N'Produtor demonstracao 9', N'90000001902', N'produtor9@banda.local', N'produtor9', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'PRODUTOR'),
+(N'Produtor demonstracao 10', N'90000002038', N'produtor10@banda.local', N'produtor10', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'PRODUTOR');
+GO
+
 INSERT INTO produtores (codigo, especialidade) VALUES
-(1, N'Administracao geral'),
-(2, N'Agenda'),
-(3, N'Contratos'),
-(4, N'Producao executiva'),
-(5, N'Producao musical'),
-(6, N'Comunicacao'),
-(7, N'Logistica'),
-(8, N'Som ao vivo'),
-(9, N'Iluminacao'),
-(10, N'Redes sociais');
+(11, N'Administracao geral'),
+(12, N'Agenda'),
+(13, N'Contratos'),
+(14, N'Producao executiva'),
+(15, N'Producao musical'),
+(16, N'Comunicacao'),
+(17, N'Logistica'),
+(18, N'Som ao vivo'),
+(19, N'Iluminacao'),
+(20, N'Redes sociais');
 GO
 
 INSERT INTO cidades (nome, uf) VALUES
@@ -144,18 +157,7 @@ INSERT INTO reunioes (codigo_agenda, pauta) VALUES
 (30, N'Organizacao de repertorio, horarios, transporte e divulgacao do evento 10.');
 GO
 
-INSERT INTO ensaio_musicos (codigo_agenda, cod_musico) VALUES
-(1, 1),
-(2, 2),
-(3, 3),
-(4, 4),
-(5, 5),
-(6, 6),
-(7, 7),
-(8, 8),
-(9, 9),
-(10, 10);
-GO
+
 
 UPDATE agenda SET codigo_tipo = 2 WHERE codigo_agenda BETWEEN 11 AND 20;
 UPDATE agenda SET codigo_tipo = 3 WHERE codigo_agenda BETWEEN 21 AND 30;

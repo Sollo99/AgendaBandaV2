@@ -56,10 +56,4 @@ public class MembroController {
         return membroService.alterarStatus(id, Boolean.TRUE.equals(body.get("ativo")));
     }
 
-    @DeleteMapping("/{id}")
-    public Map<String, String> excluir(@PathVariable Integer id, HttpServletRequest http) {
-        permissaoService.exigirAdmin(tokenService.sessaoObrigatoria(http));
-        membroService.excluir(id);
-        return Map.of("mensagem", "Membro excluído com sucesso.");
-    }
 }

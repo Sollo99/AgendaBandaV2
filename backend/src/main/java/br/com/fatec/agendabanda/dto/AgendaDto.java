@@ -10,7 +10,7 @@ public record AgendaDto(
         LocalDateTime dataHoraInicio,
         LocalDateTime dataHoraFim,
         LocalDto local,
-        MembroDto criador,
+        MembroResumoDto criador,
         TipoEventoDto tipoEvento,
         String status,
         String tipoEspecifico,
@@ -18,7 +18,7 @@ public record AgendaDto(
         String observacao,
         String pauta,
         CidadeDto cidadeShow,
-        List<MembroDto> musicos,
+        List<MusicoResumoDto> musicos,
         List<ParticipacaoDto> participacoes
 ) {
 }

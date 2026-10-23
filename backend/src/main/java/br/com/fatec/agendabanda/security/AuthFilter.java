@@ -12,15 +12,28 @@ import java.io.IOException;
 @Component
 public class AuthFilter extends OncePerRequestFilter {
     private final TokenService tokenService;
+    private final LimitadorRecuperacao limitadorRecuperacao;
 
-    public AuthFilter(TokenService tokenService) {
+    public AuthFilter(TokenService tokenService, LimitadorRecuperacao limitadorRecuperacao) {
         this.tokenService = tokenService;
+        this.limitadorRecuperacao = limitadorRecuperacao;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         String path = request.getRequestURI();
+        if ("POST".equalsIgnoreCase(request.getMethod())
+                && (path.equals("/api/auth/recuperar-senha") || path.equals("/api/auth/redefinir-senha"))) {
+            long espera = limitadorRecuperacao.segundosDeEspera(request.getRemoteAddr());
+            if (espera > 0) {
+                response.setStatus(429);
+                response.setHeader("Retry-After", Long.toString(espera));
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"erro\":\"Muitas tentativas de recuperação. Aguarde alguns minutos e tente novamente.\"}");
+                return;
+            }
+        }
 
         if ("OPTIONS".equalsIgnoreCase(request.getMethod()) || !path.startsWith("/api/") ||
                 path.equals("/api/auth/login") || path.equals("/api/auth/cadastro") ||

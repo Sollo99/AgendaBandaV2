@@ -54,21 +54,23 @@ public class AuthService {
 
     @Transactional
     public RecuperarSenhaResponse solicitarRedefinicaoSenha(RecuperarSenhaRequest request) {
-        var membro = buscarPorIdentificador(request.identificador());
-        if (membro == null || !Boolean.TRUE.equals(membro.getAtivo())) {
-            return new RecuperarSenhaResponse(false, null, "Se os dados estiverem corretos, a solicitação será analisada por um administrador.", null);
+        var codigoMembro = membroRepository.buscarCodigoPorIdentificador(request.identificador().trim()).orElse(null);
+        if (codigoMembro == null) {
+            return respostaPublica(request.chaveSolicitacao());
         }
+        // Serializa pedidos do mesmo membro; a restrição única no SQL protege também a persistência.
+        var membro = membroRepository.bloquearPorCodigo(codigoMembro).orElse(null);
+        if (membro == null || !Boolean.TRUE.equals(membro.getAtivo())) return respostaPublica(request.chaveSolicitacao());
 
-        var ultima = redefinicaoSenhaRepository.findTopByMembroCodigoOrderBySolicitadoEmDesc(membro.getCodigo()).orElse(null);
+        var ultima = redefinicaoSenhaRepository.findByMembroCodigoAndStatusIn(membro.getCodigo(), List.of("PENDENTE", "APROVADA")).orElse(null);
         if (ultima != null && ("APROVADA".equals(ultima.getStatus()) || "PENDENTE".equals(ultima.getStatus()))) {
             if (!chaveConfere(ultima, request.chaveSolicitacao())) {
-                return new RecuperarSenhaResponse(false, null,
-                        "Já existe uma solicitação aberta. Use o navegador em que ela foi criada ou informe o código de recuperação salvo.", null);
+                return respostaPublica(request.chaveSolicitacao());
             }
             if ("APROVADA".equals(ultima.getStatus())) {
                 return new RecuperarSenhaResponse(true, ultima.getCodigoRedefinicao(), "Solicitação aprovada. Defina sua nova senha.", request.chaveSolicitacao());
             }
-            return new RecuperarSenhaResponse(false, null, "Sua solicitação está aguardando a aprovação de um administrador.", request.chaveSolicitacao());
+            return respostaPublica(request.chaveSolicitacao());
         }
 
         var redefinicao = new RedefinicaoSenha();
@@ -77,11 +79,12 @@ public class AuthService {
         redefinicao.setChaveHash(hash(request.chaveSolicitacao()));
         redefinicao.setSolicitadoEm(LocalDateTime.now());
         redefinicaoSenhaRepository.save(redefinicao);
-        return new RecuperarSenhaResponse(false, null, "Solicitação enviada para aprovação de um administrador.", request.chaveSolicitacao());
+        return respostaPublica(request.chaveSolicitacao());
     }
 
     @Transactional
     public void redefinirSenha(RedefinirSenhaRequest request) {
+        bloquearMembroDaSolicitacao(request.codigoSolicitacao());
         var redefinicao = redefinicaoSenhaRepository.findByCodigoRedefinicaoAndStatus(request.codigoSolicitacao(), "APROVADA")
                 .orElseThrow(() -> new IllegalArgumentException("A solicitação não está aprovada ou já foi utilizada."));
         if (!chaveConfere(redefinicao, request.chaveSolicitacao())) {
@@ -107,6 +110,7 @@ public class AuthService {
 
     @Transactional
     public void decidirSolicitacao(Integer codigoSolicitacao, boolean aprovada, Integer codigoAdministrador) {
+        bloquearMembroDaSolicitacao(codigoSolicitacao);
         var solicitacao = redefinicaoSenhaRepository.findByCodigoRedefinicaoAndStatus(codigoSolicitacao, "PENDENTE")
                 .orElseThrow(() -> new IllegalArgumentException("Solicitação pendente não encontrada."));
         solicitacao.setStatus(aprovada ? "APROVADA" : "RECUSADA");
@@ -116,11 +120,18 @@ public class AuthService {
         redefinicaoSenhaRepository.save(solicitacao);
     }
 
-    private br.com.fatec.agendabanda.model.Membro buscarPorIdentificador(String identificador) {
-        String valor = identificador.trim();
-        return membroRepository.findByLogin(valor)
-                .or(() -> membroRepository.findByEmailIgnoreCase(valor))
-                .orElse(null);
+    private RecuperarSenhaResponse respostaPublica(String chave) {
+        // O código é devolvido mesmo sem uma conta correspondente: ele não comprova sua existência.
+        return new RecuperarSenhaResponse(false, null,
+                "Se os dados estiverem corretos, a solicitação será analisada por um administrador. "
+                        + "Se já houver uma solicitação aberta, use o navegador ou o código original.", chave);
+    }
+
+    private void bloquearMembroDaSolicitacao(Integer codigoSolicitacao) {
+        var item = redefinicaoSenhaRepository.findById(codigoSolicitacao)
+                .orElseThrow(() -> new IllegalArgumentException("Solicitação inválida."));
+        membroRepository.bloquearPorCodigo(item.getMembro().getCodigo())
+                .orElseThrow(() -> new IllegalArgumentException("Solicitação inválida."));
     }
 
     private boolean chaveConfere(RedefinicaoSenha redefinicao, String chave) {

@@ -4,7 +4,7 @@ import java.time.LocalDateTime;
 
 public record ParticipacaoDto(
         Integer codigoAgenda,
-        MembroDto musico,
+        MusicoResumoDto musico,
         String statusConfirmacao,
         Boolean presente,
         LocalDateTime dataResposta,
