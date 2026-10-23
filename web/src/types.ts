@@ -18,6 +18,8 @@ export type MusicoResumo = {
   instrumento?: string;
 };
 
+export type MembroResumo = Pick<Membro, "codigo" | "nome">;
+
 export type Cidade = {
   codigoCidade: number;
   nome: string;
@@ -44,7 +46,7 @@ export type TipoEvento = {
 
 export type ParticipacaoEvento = {
   codigoAgenda: number;
-  musico: Membro;
+  musico: MusicoResumo;
   statusConfirmacao: "PENDENTE" | "CONFIRMADO" | "RECUSADO";
   presente?: boolean;
   dataResposta?: string;
@@ -58,7 +60,7 @@ export type Agenda = {
   dataHoraInicio: string;
   dataHoraFim: string;
   local: LocalEvento;
-  criador: Membro;
+  criador: MembroResumo;
   tipoEvento: TipoEvento;
   status: "AGENDADO" | "CANCELADO" | "REALIZADO";
   tipoEspecifico: string;
@@ -66,7 +68,7 @@ export type Agenda = {
   observacao?: string;
   pauta?: string;
   cidadeShow?: Cidade;
-  musicos: Membro[];
+  musicos: MusicoResumo[];
   participacoes: ParticipacaoEvento[];
 };
 
