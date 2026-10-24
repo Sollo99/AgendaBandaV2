@@ -12,6 +12,16 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler({CredenciaisInvalidasException.class, SessaoExpiradaException.class})
+    public ResponseEntity<Map<String, String>> credenciaisInvalidas(IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("erro", ex.getMessage()));
+    }
+
+    @ExceptionHandler(RecuperacaoExpiradaException.class)
+    public ResponseEntity<Map<String, String>> recuperacaoExpirada(RecuperacaoExpiradaException ex) {
+        return ResponseEntity.badRequest().body(Map.of("erro", ex.getMessage(), "codigo", "RECUPERACAO_EXPIRADA"));
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, String>> erroIntegridade(DataIntegrityViolationException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("erro",

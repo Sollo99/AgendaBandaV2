@@ -25,7 +25,8 @@ public class MapperService {
                 membro.getAdministrador(), membro.getAtivo(), perfil,
                 musico != null ? musico.getInstrumento() : null,
                 musico != null ? musico.getBiografia() : null,
-                produtor != null ? produtor.getEspecialidade() : null
+                produtor != null ? produtor.getEspecialidade() : null,
+                membro.getStatusCadastro()
         );
     }
 

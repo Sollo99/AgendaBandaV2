@@ -8,11 +8,13 @@ import br.com.fatec.agendabanda.repository.MembroRepository;
 import br.com.fatec.agendabanda.repository.MusicoRepository;
 import br.com.fatec.agendabanda.repository.ProdutorRepository;
 import br.com.fatec.agendabanda.repository.ParticipacaoEventoRepository;
+import br.com.fatec.agendabanda.security.TokenService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.Clock;
 import java.util.List;
 import java.util.Locale;
 
@@ -24,16 +26,23 @@ public class MembroService {
     private final BCryptPasswordEncoder passwordEncoder;
     private final MapperService mapperService;
     private final ParticipacaoEventoRepository participacaoRepository;
+    private final CicloRecuperacaoService cicloRecuperacao;
+    private final TokenService tokenService;
+    private final Clock clock;
 
     public MembroService(MembroRepository membroRepository, MusicoRepository musicoRepository, ProdutorRepository produtorRepository,
                          BCryptPasswordEncoder passwordEncoder, MapperService mapperService,
-                         ParticipacaoEventoRepository participacaoRepository) {
+                         ParticipacaoEventoRepository participacaoRepository, CicloRecuperacaoService cicloRecuperacao,
+                         TokenService tokenService, Clock clock) {
         this.membroRepository = membroRepository;
         this.musicoRepository = musicoRepository;
         this.produtorRepository = produtorRepository;
         this.passwordEncoder = passwordEncoder;
         this.mapperService = mapperService;
         this.participacaoRepository = participacaoRepository;
+        this.cicloRecuperacao = cicloRecuperacao;
+        this.tokenService = tokenService;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -60,7 +69,7 @@ public class MembroService {
         validarUnicidade(request.cpf(), request.email(), request.login(), null);
         aplicarDados(membro, request);
         membro.setSenha(passwordEncoder.encode(request.senha()));
-        membro.setCriadoEm(LocalDateTime.now());
+        membro.setCriadoEm(LocalDateTime.now(clock));
         var salvo = membroRepository.save(membro);
         salvarPerfil(salvo, request);
         return mapperService.membroDto(salvo);
@@ -69,13 +78,17 @@ public class MembroService {
     @Transactional
     public MembroDto atualizar(Integer id, MembroRequest request) {
         var administradores = membroRepository.bloquearAdministradoresAtivos();
-        var membro = buscarEntidade(id);
+        var membro = buscarParaAtualizar(id);
         protegerUltimoAdministrador(membro, Boolean.TRUE.equals(request.administrador()),
                 request.ativo() == null || request.ativo(), administradores);
+        if (!"APROVADO".equals(membro.getStatusCadastro())
+                && (Boolean.TRUE.equals(request.administrador()) || request.ativo() == null || request.ativo())) {
+            throw new IllegalArgumentException("Analise o cadastro antes de ativar a conta ou conceder administração.");
+        }
         validarUnicidade(request.cpf(), request.email(), request.login(), id);
         aplicarDados(membro, request);
         if (request.senha() != null && !request.senha().isBlank()) {
-            membro.setSenha(passwordEncoder.encode(request.senha()));
+            aplicarNovaSenha(membro, request.senha());
         }
         var salvo = membroRepository.save(membro);
         salvarPerfil(salvo, request);
@@ -85,32 +98,57 @@ public class MembroService {
     @Transactional
     public MembroDto alterarStatus(Integer id, boolean ativo) {
         var administradores = membroRepository.bloquearAdministradoresAtivos();
-        var membro = buscarEntidade(id);
+        var membro = buscarParaAtualizar(id);
+        if (ativo && !"APROVADO".equals(membro.getStatusCadastro())) {
+            throw new IllegalArgumentException("O cadastro precisa ser aprovado antes da ativação.");
+        }
         protegerUltimoAdministrador(membro, Boolean.TRUE.equals(membro.getAdministrador()), ativo, administradores);
         membro.setAtivo(ativo);
         return mapperService.membroDto(membroRepository.save(membro));
     }
 
     @Transactional
-    public MembroDto criarCadastro(CadastroRequest request) {
-        validarUnicidade(request.cpf(), request.email(), request.login(), null);
+    public void criarCadastro(CadastroRequest request) {
+        String hashSenha = passwordEncoder.encode(request.senha());
+        // Consulta os três campos mesmo se um deles já existir, sem indicar qual colidiu.
+        boolean duplicado = membroRepository.findByLogin(request.login().trim()).isPresent()
+                | membroRepository.findByEmailIgnoreCase(request.email().trim()).isPresent()
+                | membroRepository.findByCpf(normalizarCpf(request.cpf())).isPresent();
+        if (duplicado) return;
         var membro = new Membro();
         membro.setNome(request.nome().trim());
         membro.setCpf(normalizarCpf(request.cpf()));
         membro.setEmail(request.email().trim());
         membro.setLogin(request.login().trim());
-        membro.setSenha(passwordEncoder.encode(request.senha()));
+        membro.setSenha(hashSenha);
         membro.setAdministrador(false);
-        membro.setAtivo(true);
+        membro.setAtivo(false);
+        membro.setStatusCadastro("PENDENTE");
         membro.setPerfil("MUSICO");
-        membro.setCriadoEm(LocalDateTime.now());
+        membro.setCriadoEm(LocalDateTime.now(clock));
         var salvo = membroRepository.save(membro);
         var musico = new Musico();
         musico.setMembro(salvo);
         musico.setInstrumento(textoOuPadrao(request.instrumento()));
         musico.setBiografia(request.biografia());
         musicoRepository.save(musico);
-        return mapperService.membroDto(salvo);
+    }
+
+    @Transactional
+    public MembroDto decidirCadastro(Integer id, boolean aprovada, Integer codigoAdministrador) {
+        if (membroRepository.bloquearAdministradoresAtivos().stream().noneMatch(m -> m.getCodigo().equals(codigoAdministrador))) {
+            throw new SecurityException("Apenas administradores ativos podem analisar cadastros.");
+        }
+        var membro = buscarParaAtualizar(id);
+        if ("APROVADO".equals(membro.getStatusCadastro()) || (!aprovada && "RECUSADO".equals(membro.getStatusCadastro()))) {
+            throw new IllegalArgumentException("O cadastro já foi analisado.");
+        }
+        membro.setStatusCadastro(aprovada ? "APROVADO" : "RECUSADO");
+        membro.setAtivo(aprovada);
+        membro.setAdministrador(false);
+        membro.setCadastroDecididoEm(LocalDateTime.now(clock));
+        membro.setCadastroDecididoPor(codigoAdministrador);
+        return mapperService.membroDto(membroRepository.save(membro));
     }
 
     @Transactional(readOnly = true)
@@ -120,7 +158,7 @@ public class MembroService {
 
     @Transactional
     public MembroDto atualizarProprio(Integer codigoMembro, PerfilRequest request) {
-        var membro = buscarEntidade(codigoMembro);
+        var membro = buscarParaAtualizar(codigoMembro);
         validarUnicidade(request.cpf(), request.email(), request.login(), codigoMembro);
         membro.setNome(request.nome().trim());
         membro.setCpf(normalizarCpf(request.cpf()));
@@ -130,7 +168,7 @@ public class MembroService {
             if (request.senhaAtual() == null || !passwordEncoder.matches(request.senhaAtual(), membro.getSenha())) {
                 throw new IllegalArgumentException("A senha atual informada é inválida.");
             }
-            membro.setSenha(passwordEncoder.encode(request.novaSenha()));
+            aplicarNovaSenha(membro, request.novaSenha());
         }
         var salvo = membroRepository.save(membro);
         musicoRepository.findById(codigoMembro).ifPresent(musico -> {
@@ -143,8 +181,19 @@ public class MembroService {
 
     @Transactional
     public void redefinirSenha(Membro membro, String novaSenha) {
-        membro.setSenha(passwordEncoder.encode(novaSenha));
+        buscarParaAtualizar(membro.getCodigo());
+        aplicarNovaSenha(membro, novaSenha);
         membroRepository.save(membro);
+    }
+
+    private Membro buscarParaAtualizar(Integer id) {
+        return membroRepository.bloquearPorCodigo(id).orElseThrow(() -> new IllegalArgumentException("Membro não encontrado."));
+    }
+
+    private void aplicarNovaSenha(Membro membro, String novaSenha) {
+        membro.setSenha(passwordEncoder.encode(novaSenha));
+        cicloRecuperacao.cancelarAbertas(membro.getCodigo(), "Senha alterada por outro caminho.");
+        tokenService.removerSessoesDoMembro(membro.getCodigo());
     }
 
     private void aplicarDados(Membro membro, MembroRequest request) {

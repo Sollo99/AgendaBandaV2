@@ -6,15 +6,16 @@ import br.com.fatec.agendabanda.dto.AuthDtos.RecuperarSenhaRequest;
 import br.com.fatec.agendabanda.dto.AuthDtos.RecuperarSenhaResponse;
 import br.com.fatec.agendabanda.dto.AuthDtos.RedefinirSenhaRequest;
 import br.com.fatec.agendabanda.dto.CadastroRequest;
-import br.com.fatec.agendabanda.dto.MembroDto;
 import br.com.fatec.agendabanda.security.TokenService;
 import br.com.fatec.agendabanda.service.AuthService;
-import br.com.fatec.agendabanda.service.MembroService;
+import br.com.fatec.agendabanda.service.CadastroPublicoService;
+import br.com.fatec.agendabanda.exception.RecuperacaoExpiradaException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -28,12 +29,12 @@ public class AuthController {
     private static final String COOKIE_RECUPERACAO = "agendabanda_recuperacao";
     private final AuthService authService;
     private final TokenService tokenService;
-    private final MembroService membroService;
+    private final CadastroPublicoService cadastroPublicoService;
 
-    public AuthController(AuthService authService, TokenService tokenService, MembroService membroService) {
+    public AuthController(AuthService authService, TokenService tokenService, CadastroPublicoService cadastroPublicoService) {
         this.authService = authService;
         this.tokenService = tokenService;
-        this.membroService = membroService;
+        this.cadastroPublicoService = cadastroPublicoService;
     }
 
     @PostMapping("/login")
@@ -42,8 +43,9 @@ public class AuthController {
     }
 
     @PostMapping("/cadastro")
-    public MembroDto cadastro(@Valid @RequestBody CadastroRequest request) {
-        return membroService.criarCadastro(request);
+    public ResponseEntity<Map<String, String>> cadastro(@Valid @RequestBody CadastroRequest request) {
+        cadastroPublicoService.solicitar(request);
+        return ResponseEntity.accepted().body(Map.of("mensagem", "Se os dados forem válidos e ainda não estiverem cadastrados, a solicitação será analisada por um administrador."));
     }
 
     @PostMapping("/recuperar-senha")
@@ -69,7 +71,12 @@ public class AuthController {
                                             HttpServletRequest http, HttpServletResponse response) {
         String chave = request.chaveSolicitacao() != null ? request.chaveSolicitacao() : cookie;
         if (chave == null || chave.isBlank()) throw new IllegalArgumentException("Informe o código de recuperação ou use o navegador da solicitação.");
-        authService.redefinirSenha(new RedefinirSenhaRequest(request.codigoSolicitacao(), chave, request.novaSenha()));
+        try {
+            authService.redefinirSenha(new RedefinirSenhaRequest(request.codigoSolicitacao(), chave, request.novaSenha()));
+        } catch (RecuperacaoExpiradaException ex) {
+            salvarCookie(response, http.isSecure(), "", Duration.ZERO);
+            throw ex;
+        }
         salvarCookie(response, http.isSecure(), "", Duration.ZERO);
         return Map.of("mensagem", "Senha redefinida com sucesso. Faça login com a nova senha.");
     }

@@ -6,6 +6,8 @@ import br.com.fatec.agendabanda.repository.SessaoPersistidaRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import br.com.fatec.agendabanda.exception.SessaoExpiradaException;
+import java.time.Clock;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -20,10 +22,12 @@ public class TokenService {
     private static final int DURACAO_HORAS = 8;
     private final SessaoPersistidaRepository sessaoRepository;
     private final MembroRepository membroRepository;
+    private final Clock clock;
 
-    public TokenService(SessaoPersistidaRepository sessaoRepository, MembroRepository membroRepository) {
+    public TokenService(SessaoPersistidaRepository sessaoRepository, MembroRepository membroRepository, Clock clock) {
         this.sessaoRepository = sessaoRepository;
         this.membroRepository = membroRepository;
+        this.clock = clock;
     }
 
     @Transactional
@@ -32,8 +36,8 @@ public class TokenService {
         var sessao = new SessaoPersistida();
         sessao.setTokenHash(hash(token));
         sessao.setCodigoMembro(usuario.codigo());
-        sessao.setCriadoEm(LocalDateTime.now());
-        sessao.setExpiraEm(LocalDateTime.now().plusHours(DURACAO_HORAS));
+        sessao.setCriadoEm(LocalDateTime.now(clock));
+        sessao.setExpiraEm(LocalDateTime.now(clock).plusHours(DURACAO_HORAS));
         sessaoRepository.save(sessao);
         return token;
     }
@@ -41,9 +45,9 @@ public class TokenService {
     @Transactional
     public Optional<SessaoUsuario> buscarSessao(String token) {
         if (token == null || token.isBlank()) return Optional.empty();
-        return sessaoRepository.findByTokenHashAndExpiraEmAfter(hash(token), LocalDateTime.now())
+        return sessaoRepository.findByTokenHashAndExpiraEmAfter(hash(token), LocalDateTime.now(clock))
                 .flatMap(item -> membroRepository.findById(item.getCodigoMembro())
-                        .filter(membro -> Boolean.TRUE.equals(membro.getAtivo()))
+                        .filter(membro -> Boolean.TRUE.equals(membro.getAtivo()) && "APROVADO".equals(membro.getStatusCadastro()))
                         .map(membro -> new SessaoUsuario(membro.getCodigo(), membro.getNome(), membro.getLogin(), Boolean.TRUE.equals(membro.getAdministrador()))));
     }
 
@@ -63,7 +67,7 @@ public class TokenService {
     }
 
     public SessaoUsuario sessaoObrigatoria(HttpServletRequest request) {
-        return buscarSessao(extrairToken(request)).orElseThrow(() -> new IllegalArgumentException("Sessão inválida ou expirada."));
+        return buscarSessao(extrairToken(request)).orElseThrow(SessaoExpiradaException::new);
     }
 
     private String hash(String valor) {
