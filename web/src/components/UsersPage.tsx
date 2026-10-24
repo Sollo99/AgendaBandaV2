@@ -1,15 +1,17 @@
 import { SyntheticEvent, useEffect, useState } from "react";
 import { Box, Button, Card, Grid, HStack, Input, Stack, Text } from "@chakra-ui/react";
 import { api } from "../api";
+import { encerrarSessao } from "../sessao";
 import type { Membro } from "../types";
 
 const vazio = { nome: "", cpf: "", email: "", login: "", senha: "", administrador: false, ativo: true, perfil: "MEMBRO", instrumento: "", biografia: "", especialidade: "" };
 
-export default function UsersPage() {
+export default function UsersPage({ usuario }: { usuario: Membro }) {
   const [membros, setMembros] = useState<Membro[]>([]);
   const [form, setForm] = useState({ ...vazio });
   const [editando, setEditando] = useState<number | null>(null);
   const [erro, setErro] = useState("");
+  const [analisando, setAnalisando] = useState<number | null>(null);
 
   async function carregar() {
     setMembros(await api.listarMembros());
@@ -29,7 +31,13 @@ export default function UsersPage() {
     e.preventDefault();
     setErro("");
     try {
-      if (editando) await api.atualizarMembro(editando, form);
+      if (editando) {
+        await api.atualizarMembro(editando, form);
+        if (editando === usuario.codigo && form.senha) {
+          encerrarSessao("Senha alterada. Entre novamente com a nova senha.");
+          return;
+        }
+      }
       else await api.criarMembro(form);
       setForm({ ...vazio });
       setEditando(null);
@@ -50,6 +58,19 @@ export default function UsersPage() {
       await carregar();
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Erro ao alterar o status do membro.");
+    }
+  }
+
+  async function decidirCadastro(membro: Membro, aprovada: boolean) {
+    setErro("");
+    setAnalisando(membro.codigo);
+    try {
+      await api.decidirCadastro(membro.codigo, aprovada);
+      await carregar();
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : "Não foi possível analisar o cadastro.");
+    } finally {
+      setAnalisando(null);
     }
   }
 
@@ -74,7 +95,14 @@ export default function UsersPage() {
         </Stack>
       </Card.Body></Card.Root>
       <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)" }} gap="3">
-        {membros.map((m) => <Card.Root key={m.codigo} borderRadius="2xl"><Card.Body><Stack gap="2"><Text fontWeight="bold">{m.nome}</Text><Text>{m.login} • {m.email}</Text><Text>{m.perfil} {m.administrador ? "• Admin" : ""} • {m.ativo ? "Ativo" : "Inativo"}</Text><HStack><Button size="sm" onClick={() => preencher(m)}>Editar</Button><Button size="sm" variant="outline" onClick={() => alterarStatus(m)}>{m.ativo ? "Desativar" : "Ativar"}</Button></HStack></Stack></Card.Body></Card.Root>)}
+        {membros.map((m) => <Card.Root key={m.codigo} borderRadius="2xl"><Card.Body><Stack gap="2">
+          <Text fontWeight="bold">{m.nome}</Text><Text>{m.login} • {m.email}</Text>
+          <Text>{m.perfil} {m.administrador ? "• Admin" : ""} • {m.statusCadastro === "PENDENTE" ? "Cadastro pendente" : m.statusCadastro === "RECUSADO" ? "Cadastro recusado" : m.ativo ? "Ativo" : "Inativo"}</Text>
+          {m.statusCadastro === "APROVADO" ? <HStack><Button size="sm" onClick={() => preencher(m)}>Editar</Button><Button size="sm" variant="outline" onClick={() => alterarStatus(m)}>{m.ativo ? "Desativar" : "Ativar"}</Button></HStack> : <HStack>
+            <Button size="sm" disabled={analisando !== null} onClick={() => decidirCadastro(m, true)}>Aprovar cadastro</Button>
+            {m.statusCadastro === "PENDENTE" && <Button size="sm" variant="outline" disabled={analisando !== null} onClick={() => decidirCadastro(m, false)}>Recusar cadastro</Button>}
+          </HStack>}
+        </Stack></Card.Body></Card.Root>)}
       </Grid>
     </Stack>
   );

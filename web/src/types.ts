@@ -6,6 +6,7 @@ export type Membro = {
   login: string;
   administrador: boolean;
   ativo: boolean;
+  statusCadastro: "PENDENTE" | "APROVADO" | "RECUSADO";
   perfil: "MEMBRO" | "MUSICO" | "PRODUTOR";
   instrumento?: string;
   biografia?: string;
@@ -84,4 +85,6 @@ export type SolicitacaoSenha = {
   loginMembro: string;
   emailMembro: string;
   solicitadoEm: string;
+  status: "PENDENTE" | "APROVADA";
+  expiraEm: string;
 };
