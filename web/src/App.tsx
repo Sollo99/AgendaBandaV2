@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Box, Button, Flex, Heading, HStack, Text } from "@chakra-ui/react";
-import { api } from "./api";
+import { api, ApiError } from "./api";
+import { encerrarSessao, EVENTO_SESSAO_ENCERRADA } from "./sessao";
 import type { Membro } from "./types";
 import LoginPage from "./components/LoginPage";
 import AgendaPage from "./components/AgendaPage";
@@ -17,21 +18,78 @@ type Aba = "agenda" | "perfil" | "usuarios" | "locais" | "cidades" | "tipos";
 export default function App() {
   const [usuario, setUsuario] = useState<Membro | null>(null);
   const [aba, setAba] = useState<Aba>("agenda");
+  const [carregando, setCarregando] = useState(true);
+  const [erroInicial, setErroInicial] = useState("");
+  const [mensagemLogin, setMensagemLogin] = useState("");
+  const validacaoAtual = useRef(0);
 
-  useEffect(() => {
-    const salvo = localStorage.getItem("usuario");
-    if (salvo) setUsuario(JSON.parse(salvo));
+  const validarSessao = useCallback(async () => {
+    const tentativa = ++validacaoAtual.current;
+    const token = localStorage.getItem("token");
+    setCarregando(true);
+    setErroInicial("");
+    setUsuario(null);
+    if (!token) {
+      localStorage.removeItem("usuario");
+      setCarregando(false);
+      return;
+    }
+    try {
+      const perfil = await api.obterMeuPerfil();
+      if (tentativa === validacaoAtual.current && token === localStorage.getItem("token")) {
+        localStorage.setItem("usuario", JSON.stringify(perfil));
+        setUsuario(perfil);
+      }
+    } catch (err) {
+      if (tentativa === validacaoAtual.current && !(err instanceof ApiError && err.status === 401)) {
+        setErroInicial("Não foi possível verificar sua sessão. Confira a conexão e tente novamente.");
+      }
+    } finally {
+      if (tentativa === validacaoAtual.current) setCarregando(false);
+    }
   }, []);
 
-  async function sair() {
-    await api.logout().catch(() => undefined);
-    localStorage.removeItem("token");
-    localStorage.removeItem("usuario");
-    setUsuario(null);
+  useEffect(() => {
+    function aoEncerrar(evento: Event) {
+      ++validacaoAtual.current;
+      setUsuario(null);
+      setAba("agenda");
+      setErroInicial("");
+      setCarregando(false);
+      setMensagemLogin((evento as CustomEvent<string>).detail ?? "");
+    }
+    function aoMudarStorage(evento: StorageEvent) {
+      if (evento.key === "token" || evento.key === null) {
+        if (!localStorage.getItem("token")) aoEncerrar(new CustomEvent(EVENTO_SESSAO_ENCERRADA));
+        else void validarSessao();
+      }
+    }
+    window.addEventListener(EVENTO_SESSAO_ENCERRADA, aoEncerrar);
+    window.addEventListener("storage", aoMudarStorage);
+    void validarSessao();
+    return () => {
+      ++validacaoAtual.current;
+      window.removeEventListener(EVENTO_SESSAO_ENCERRADA, aoEncerrar);
+      window.removeEventListener("storage", aoMudarStorage);
+    };
+  }, [validarSessao]);
+
+  function sair() {
+    const pedido = api.logout();
+    encerrarSessao();
+    void pedido.catch(() => undefined);
   }
 
+  if (carregando) return <Box p="8"><Text>Verificando sessão...</Text></Box>;
+  if (erroInicial) return <Box p="8"><Text mb="4">{erroInicial}</Text><HStack><Button onClick={() => void validarSessao()}>Tentar novamente</Button><Button variant="outline" onClick={sair}>Voltar ao login</Button></HStack></Box>;
+
   if (!usuario) {
-    return <LoginPage onLogin={setUsuario} />;
+    return <LoginPage mensagemInicial={mensagemLogin} onLogin={(perfil) => {
+      ++validacaoAtual.current;
+      setMensagemLogin("");
+      setAba("agenda");
+      setUsuario(perfil);
+    }} />;
   }
 
   return (
@@ -59,7 +117,7 @@ export default function App() {
       <Box maxW="1180px" mx="auto" p="6">
         {aba === "agenda" && <AgendaPage usuario={usuario} />}
         {aba === "perfil" && <PerfilPage usuario={usuario} onAtualizar={setUsuario} />}
-        {aba === "usuarios" && usuario.administrador && <UsersPage />}
+        {aba === "usuarios" && usuario.administrador && <UsersPage usuario={usuario} />}
         {aba === "locais" && usuario.administrador && <LocaisPage />}
         {aba === "cidades" && usuario.administrador && <CidadesPage />}
         {aba === "tipos" && usuario.administrador && <TiposEventoPage />}

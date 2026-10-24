@@ -1,6 +1,7 @@
 import { SyntheticEvent, useState } from "react";
 import { Box, Button, Card, Grid, HStack, Input, Stack, Text, Textarea } from "@chakra-ui/react";
 import { api } from "../api";
+import { encerrarSessao } from "../sessao";
 import type { Membro } from "../types";
 
 export default function PerfilPage({ usuario, onAtualizar }: { usuario: Membro; onAtualizar: (usuario: Membro) => void }) {
@@ -29,6 +30,10 @@ export default function PerfilPage({ usuario, onAtualizar }: { usuario: Membro; 
         ? { ...dadosDoPerfil, senhaAtual, novaSenha }
         : dadosDoPerfil;
       const atualizado = await api.atualizarMeuPerfil(dados);
+      if (novaSenha) {
+        encerrarSessao("Senha alterada. Entre novamente com a nova senha.");
+        return;
+      }
       localStorage.setItem("usuario", JSON.stringify(atualizado));
       onAtualizar(atualizado);
       setForm({ ...form, senhaAtual: "", novaSenha: "" });

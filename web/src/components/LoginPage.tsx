@@ -1,11 +1,11 @@
-import { SyntheticEvent, useState } from "react";
+import { SyntheticEvent, useEffect, useState } from "react";
 import { Box, Button, Card, Heading, Input, Stack, Text } from "@chakra-ui/react";
-import { api } from "../api";
+import { api, ApiError } from "../api";
 import type { Membro } from "../types";
 
 type Modo = "login" | "cadastro" | "recuperar" | "redefinir";
 
-export default function LoginPage({ onLogin }: { onLogin: (usuario: Membro) => void }) {
+export default function LoginPage({ onLogin, mensagemInicial = "" }: { onLogin: (usuario: Membro) => void; mensagemInicial?: string }) {
   const [modo, setModo] = useState<Modo>("login");
   const [login, setLogin] = useState("usuario");
   const [senha, setSenha] = useState("usuario");
@@ -17,8 +17,9 @@ export default function LoginPage({ onLogin }: { onLogin: (usuario: Membro) => v
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmacaoSenha, setConfirmacaoSenha] = useState("");
   const [erro, setErro] = useState("");
-  const [mensagem, setMensagem] = useState("");
+  const [mensagem, setMensagem] = useState(mensagemInicial);
   const [carregando, setCarregando] = useState(false);
+  useEffect(() => { setMensagem(mensagemInicial); }, [mensagemInicial]);
 
   function trocarModo(novoModo: Modo) {
     setModo(novoModo);
@@ -47,10 +48,10 @@ export default function LoginPage({ onLogin }: { onLogin: (usuario: Membro) => v
     setErro("");
     setCarregando(true);
     try {
-      await api.cadastro(cadastro);
+      const resposta = await api.cadastro(cadastro);
       setLogin(cadastro.login);
       setSenha("");
-      setMensagem("Cadastro realizado. Entre com seu login e senha.");
+      setMensagem(resposta.mensagem);
       setModo("login");
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Não foi possível criar a conta.");
@@ -98,6 +99,14 @@ export default function LoginPage({ onLogin }: { onLogin: (usuario: Membro) => v
       setSenha("");
       setModo("login");
     } catch (err) {
+      if (err instanceof ApiError && err.codigo === "RECUPERACAO_EXPIRADA") {
+        setCodigoSolicitacao(null);
+        setCodigoInformado("");
+        setCodigoRecuperacao("");
+        setNovaSenha("");
+        setConfirmacaoSenha("");
+        setModo("recuperar");
+      }
       setErro(err instanceof Error ? err.message : "Não foi possível redefinir a senha.");
     } finally {
       setCarregando(false);

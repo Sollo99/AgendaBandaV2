@@ -1,13 +1,17 @@
 import type { Agenda, Cidade, LocalEvento, LoginResponse, Membro, MusicoResumo, ParticipacaoEvento, SolicitacaoSenha, TipoEvento } from "./types";
+import { tratarNaoAutenticado } from "./sessao";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "/api";
 
-export class ApiError extends Error {}
+export class ApiError extends Error {
+  constructor(message: string, public status: number, public codigo?: string) { super(message); }
+}
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = localStorage.getItem("token");
+async function request<T>(path: string, options: RequestInit & { publica?: boolean } = {}): Promise<T> {
+  const { publica = false, ...init } = options;
+  const token = publica ? null : localStorage.getItem("token");
   const response = await fetch(`${API_URL}${path}`, {
-    ...options,
+    ...init,
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -17,7 +21,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    throw new ApiError(data.erro ?? "Erro ao comunicar com o servidor.");
+    if (response.status === 401 && token) tratarNaoAutenticado(token);
+    throw new ApiError(data.erro ?? "Erro ao comunicar com o servidor.", response.status, data.codigo);
   }
 
   if (response.status === 204) {
@@ -28,14 +33,16 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export const api = {
   login: (login: string, senha: string) => request<LoginResponse>("/auth/login", {
+    publica: true,
     method: "POST",
     body: JSON.stringify({ login, senha })
   }),
-  cadastro: (data: unknown) => request<Membro>("/auth/cadastro", { method: "POST", body: JSON.stringify(data) }),
-  recuperarSenha: (identificador: string, chaveSolicitacao?: string) => request<{ podeRedefinir: boolean; codigoSolicitacao?: number; mensagem: string; codigoRecuperacao?: string }>("/auth/recuperar-senha", { method: "POST", credentials: "include", body: JSON.stringify({ identificador, chaveSolicitacao }) }),
-  redefinirSenha: (codigoSolicitacao: number, novaSenha: string, chaveSolicitacao?: string) => request<{ mensagem: string }>("/auth/redefinir-senha", { method: "POST", credentials: "include", body: JSON.stringify({ codigoSolicitacao, chaveSolicitacao, novaSenha }) }),
-  listarSolicitacoesSenha: () => request<SolicitacaoSenha[]>("/redefinicoes-senha/pendentes"),
+  cadastro: (data: unknown) => request<{ mensagem: string }>("/auth/cadastro", { publica: true, method: "POST", body: JSON.stringify(data) }),
+  recuperarSenha: (identificador: string, chaveSolicitacao?: string) => request<{ podeRedefinir: boolean; codigoSolicitacao?: number; mensagem: string; codigoRecuperacao?: string }>("/auth/recuperar-senha", { publica: true, method: "POST", credentials: "include", body: JSON.stringify({ identificador, chaveSolicitacao }) }),
+  redefinirSenha: (codigoSolicitacao: number, novaSenha: string, chaveSolicitacao?: string) => request<{ mensagem: string }>("/auth/redefinir-senha", { publica: true, method: "POST", credentials: "include", body: JSON.stringify({ codigoSolicitacao, chaveSolicitacao, novaSenha }) }),
+  listarSolicitacoesSenha: () => request<SolicitacaoSenha[]>("/redefinicoes-senha/abertas"),
   decidirSolicitacaoSenha: (id: number, aprovada: boolean) => request<{ mensagem: string }>(`/redefinicoes-senha/${id}`, { method: "PATCH", body: JSON.stringify({ aprovada }) }),
+  cancelarSolicitacaoSenha: (id: number) => request<{ mensagem: string }>(`/redefinicoes-senha/${id}/cancelar`, { method: "POST" }),
   logout: () => request<{ mensagem: string }>("/auth/logout", { method: "POST" }),
   listarAgenda: () => request<Agenda[]>("/agenda"),
   detalharAgenda: (id: number) => request<Agenda>(`/agenda/${id}`),
@@ -55,6 +62,7 @@ export const api = {
   criarMembro: (data: unknown) => request<Membro>("/membros", { method: "POST", body: JSON.stringify(data) }),
   atualizarMembro: (id: number, data: unknown) => request<Membro>(`/membros/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   alterarStatusMembro: (id: number, ativo: boolean) => request<Membro>(`/membros/${id}/status`, { method: "PATCH", body: JSON.stringify({ ativo }) }),
+  decidirCadastro: (id: number, aprovada: boolean) => request<Membro>(`/membros/${id}/cadastro`, { method: "PATCH", body: JSON.stringify({ aprovada }) }),
   obterMeuPerfil: () => request<Membro>("/membros/me"),
   atualizarMeuPerfil: (data: unknown) => request<Membro>("/membros/me", { method: "PUT", body: JSON.stringify(data) }),
   listarCidades: () => request<Cidade[]>("/cidades"),
