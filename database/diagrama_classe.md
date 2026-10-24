@@ -12,6 +12,9 @@ classDiagram
         Bit administrador
         Bit ativo
         String perfil
+        String status_cadastro
+        DateTime cadastro_decidido_em
+        int cadastro_decidido_por
         DateTime criado_em
     }
 
@@ -95,9 +98,12 @@ classDiagram
         String status
         String chave_hash
         DateTime solicitado_em
+        DateTime expira_em
         int codigo_administrador
         DateTime decidido_em
         DateTime concluido_em
+        DateTime encerrado_em
+        String motivo_encerramento
     }
 
     class SessaoPersistida {
@@ -123,6 +129,7 @@ classDiagram
     Membro "1" --> "0..*" RedefinicaoSenha : solicita
     Membro "0..1" --> "0..*" RedefinicaoSenha : decide
     Membro "1" --> "0..*" SessaoPersistida : autentica
+    Membro "0..1" --> "0..*" Membro : analisa cadastro
 ```
 
 O membro possui um único perfil operacional: `MEMBRO`, `MUSICO` ou `PRODUTOR`. Os subtipos usam uma FK composta `(codigo, perfil)` para `membros`, com `perfil` fixo no respectivo subtipo. Isso impede que o mesmo código esteja nas duas tabelas de perfil. O indicador `administrador` é independente dessa classificação.
@@ -130,3 +137,7 @@ O membro possui um único perfil operacional: `MEMBRO`, `MUSICO` ou `PRODUTOR`. 
 `ParticipacaoEvento` é o único vínculo de músicos com qualquer evento, incluindo ensaios. A chave composta impede duplicação do mesmo músico no mesmo evento. Um índice filtrado garante uma única solicitação de senha aberta (`PENDENTE` ou `APROVADA`) por membro.
 
 Membros são desativados para preservar seus vínculos. Locais com qualquer evento vinculado não podem ser excluídos, mesmo se o evento estiver cancelado ou realizado.
+
+O cadastro público começa `PENDENTE`, inativo e sem administração. Somente uma decisão administrativa o torna `APROVADO`; `RECUSADO` continua sem acesso. A restrição SQL impede conta não aprovada de ficar ativa ou administrativa. O responsável e a data da decisão são preservados em `membros`.
+
+Uma recuperação fica aberta somente em `PENDENTE` ou `APROVADA`, sempre com `expira_em`. Encerramentos usam `CONCLUIDA`, `RECUSADA`, `EXPIRADA` ou `CANCELADA`, com data e motivo. O índice filtrado deixa de abranger o pedido encerrado e permite uma nova solicitação.
