@@ -33,12 +33,15 @@ class AuthServiceTest {
     @Mock MapperService mapperService;
     @Mock RedefinicaoSenhaRepository redefinicaoRepository;
     @Mock MembroService membroService;
-    @InjectMocks AuthService service;
+    AuthService service;
+    private final java.time.Clock clock = java.time.Clock.fixed(java.time.Instant.parse("2026-10-24T12:00:00Z"), java.time.ZoneOffset.UTC);
     private Membro membro;
     private RedefinicaoSenha solicitacao;
 
     @BeforeEach
     void preparar() throws Exception {
+        service = new AuthService(membroRepository, passwordEncoder, tokenService, mapperService, redefinicaoRepository, membroService,
+                new CicloRecuperacaoService(redefinicaoRepository, membroRepository, clock, 24, 2), clock);
         membro = new Membro();
         membro.setCodigo(7);
         membro.setAtivo(true);
@@ -46,6 +49,7 @@ class AuthServiceTest {
         solicitacao.setCodigoRedefinicao(12);
         solicitacao.setMembro(membro);
         solicitacao.setStatus("APROVADA");
+        solicitacao.setExpiraEm(java.time.LocalDateTime.now(clock).plusHours(1));
         solicitacao.setChaveHash(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(CHAVE.getBytes(StandardCharsets.UTF_8))));
     }
 
@@ -81,7 +85,7 @@ class AuthServiceTest {
 
     @Test
     void idSequencialSemChaveCorretaNaoRedefineSenha() {
-        when(redefinicaoRepository.findById(12)).thenReturn(Optional.of(solicitacao));
+        when(redefinicaoRepository.buscarCodigoMembro(12)).thenReturn(Optional.of(7));
         when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
         when(redefinicaoRepository.findByCodigoRedefinicaoAndStatus(12, "APROVADA")).thenReturn(Optional.of(solicitacao));
 
@@ -91,7 +95,7 @@ class AuthServiceTest {
 
     @Test
     void conclusaoInvalidaSessoesEConsomeSolicitacao() {
-        when(redefinicaoRepository.findById(12)).thenReturn(Optional.of(solicitacao));
+        when(redefinicaoRepository.buscarCodigoMembro(12)).thenReturn(Optional.of(7));
         when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
         when(redefinicaoRepository.findByCodigoRedefinicaoAndStatus(12, "APROVADA")).thenReturn(Optional.of(solicitacao));
 
@@ -100,7 +104,7 @@ class AuthServiceTest {
         assertEquals("CONCLUIDA", solicitacao.getStatus());
         assertNotNull(solicitacao.getConcluidoEm());
         verify(membroService).redefinirSenha(membro, "novaSenha");
-        verify(tokenService).removerSessoesDoMembro(7);
+        assertNotNull(solicitacao.getEncerradoEm());
     }
 
     @Test
@@ -133,8 +137,101 @@ class AuthServiceTest {
         assertEquals(primeiro, segundo);
         verify(redefinicaoRepository, times(1)).save(any());
         var ordem = inOrder(membroRepository, redefinicaoRepository);
-        ordem.verify(membroRepository).bloquearPorCodigo(7);
+        ordem.verify(membroRepository, times(2)).bloquearPorCodigo(7);
         ordem.verify(redefinicaoRepository).findByMembroCodigoAndStatusIn(7, java.util.List.of("PENDENTE", "APROVADA"));
         ordem.verify(redefinicaoRepository).save(any());
+    }
+
+    @Test
+    void pedidoAprovadoVencidoELiberadoParaNovaSolicitacao() {
+        when(membroRepository.buscarCodigoPorIdentificador("ana")).thenReturn(Optional.of(7));
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
+        when(redefinicaoRepository.findByMembroCodigoAndStatusIn(7, CicloRecuperacaoService.ABERTAS)).thenReturn(Optional.of(solicitacao));
+        solicitacao.setExpiraEm(java.time.LocalDateTime.now(clock).minusSeconds(1));
+        var resposta = service.solicitarRedefinicaoSenha(new RecuperarSenhaRequest("ana", CHAVE));
+        assertFalse(resposta.podeRedefinir());
+        assertEquals("EXPIRADA", solicitacao.getStatus());
+        var captor = org.mockito.ArgumentCaptor.forClass(RedefinicaoSenha.class);
+        verify(redefinicaoRepository).save(captor.capture());
+        assertEquals("PENDENTE", captor.getValue().getStatus());
+        assertEquals(java.time.LocalDateTime.now(clock).plusHours(24), captor.getValue().getExpiraEm());
+        var ordem = inOrder(redefinicaoRepository);
+        ordem.verify(redefinicaoRepository).saveAndFlush(solicitacao);
+        ordem.verify(redefinicaoRepository).save(any());
+    }
+
+    @Test
+    void chaveCorretaNaoPermiteRedefinirDepoisDoPrazo() {
+        when(redefinicaoRepository.buscarCodigoMembro(12)).thenReturn(Optional.of(7));
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
+        when(redefinicaoRepository.findByCodigoRedefinicaoAndStatus(12, "APROVADA")).thenReturn(Optional.of(solicitacao));
+        solicitacao.setExpiraEm(java.time.LocalDateTime.now(clock));
+        assertThrows(br.com.fatec.agendabanda.exception.RecuperacaoExpiradaException.class,
+                () -> service.redefinirSenha(new RedefinirSenhaRequest(12, CHAVE, "novaSenha")));
+        assertEquals("EXPIRADA", solicitacao.getStatus());
+        verify(redefinicaoRepository).saveAndFlush(solicitacao);
+        verify(membroService, never()).redefinirSenha(any(), any());
+    }
+
+    private void prepararAdministrador() {
+        var admin = new Membro(); admin.setCodigo(1); admin.setAtivo(true); admin.setAdministrador(true);
+        when(membroRepository.bloquearAdministradoresAtivos()).thenReturn(java.util.List.of(admin));
+        when(redefinicaoRepository.buscarCodigoMembro(12)).thenReturn(Optional.of(7));
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
+    }
+
+    @Test
+    void aprovacaoDaNovoPrazoDeDuasHoras() {
+        prepararAdministrador();
+        when(membroRepository.findById(1)).thenReturn(Optional.of(new Membro()));
+        solicitacao.setStatus("PENDENTE");
+        when(redefinicaoRepository.findByCodigoRedefinicaoAndStatus(12, "PENDENTE")).thenReturn(Optional.of(solicitacao));
+        service.decidirSolicitacao(12, true, 1);
+        assertEquals("APROVADA", solicitacao.getStatus());
+        assertEquals(java.time.LocalDateTime.now(clock).plusHours(2), solicitacao.getExpiraEm());
+    }
+
+    @Test
+    void administradorPodeCancelarPedidoJaAprovado() {
+        prepararAdministrador();
+        when(redefinicaoRepository.findByCodigoRedefinicaoAndStatusIn(12, CicloRecuperacaoService.ABERTAS)).thenReturn(Optional.of(solicitacao));
+        service.cancelarSolicitacao(12, 1);
+        assertEquals("CANCELADA", solicitacao.getStatus());
+        assertNotNull(solicitacao.getEncerradoEm());
+        verify(redefinicaoRepository).saveAndFlush(solicitacao);
+    }
+
+    @Test
+    void administradorNaoAprovaPedidoVencido() {
+        prepararAdministrador();
+        solicitacao.setStatus("PENDENTE"); solicitacao.setExpiraEm(java.time.LocalDateTime.now(clock));
+        when(redefinicaoRepository.findByCodigoRedefinicaoAndStatus(12, "PENDENTE")).thenReturn(Optional.of(solicitacao));
+        assertThrows(br.com.fatec.agendabanda.exception.RecuperacaoExpiradaException.class, () -> service.decidirSolicitacao(12, true, 1));
+        assertEquals("EXPIRADA", solicitacao.getStatus());
+    }
+
+    @Test
+    void loginNaoRevelaContaDesativadaOuPendente() {
+        when(membroRepository.buscarCodigoPorLogin("ana")).thenReturn(Optional.of(7));
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
+        membro.setSenha("hash");
+        when(passwordEncoder.matches("senha123", "hash")).thenReturn(true);
+        membro.setAtivo(false);
+        var desativado = assertThrows(br.com.fatec.agendabanda.exception.CredenciaisInvalidasException.class,
+                () -> service.login(new br.com.fatec.agendabanda.dto.AuthDtos.LoginRequest("ana", "senha123")));
+        membro.setAtivo(true); membro.setStatusCadastro("PENDENTE");
+        var pendente = assertThrows(br.com.fatec.agendabanda.exception.CredenciaisInvalidasException.class,
+                () -> service.login(new br.com.fatec.agendabanda.dto.AuthDtos.LoginRequest("ana", "senha123")));
+        assertEquals("Login ou senha inválidos.", desativado.getMessage());
+        assertEquals(desativado.getMessage(), pendente.getMessage());
+        verify(tokenService, never()).criarToken(any());
+    }
+
+    @Test
+    void loginInexistenteTambemExecutaComparacaoDeHash() {
+        assertThrows(br.com.fatec.agendabanda.exception.CredenciaisInvalidasException.class,
+                () -> service.login(new br.com.fatec.agendabanda.dto.AuthDtos.LoginRequest("nao-existe", "senha123")));
+        verify(passwordEncoder).matches(eq("senha123"), any());
+        verify(tokenService, never()).criarToken(any());
     }
 }

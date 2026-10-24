@@ -19,6 +19,19 @@ public class Membro {
     private Boolean administrador;
     private Boolean ativo;
     private String perfil = "MEMBRO";
+    @Column(name = "status_cadastro")
+    private String statusCadastro = "APROVADO";
+    @Column(name = "cadastro_decidido_em")
+    private LocalDateTime cadastroDecididoEm;
+    @Column(name = "cadastro_decidido_por")
+    private Integer cadastroDecididoPor;
+
+    public String getStatusCadastro() { return statusCadastro; }
+    public void setStatusCadastro(String statusCadastro) { this.statusCadastro = statusCadastro; }
+    public LocalDateTime getCadastroDecididoEm() { return cadastroDecididoEm; }
+    public void setCadastroDecididoEm(LocalDateTime cadastroDecididoEm) { this.cadastroDecididoEm = cadastroDecididoEm; }
+    public Integer getCadastroDecididoPor() { return cadastroDecididoPor; }
+    public void setCadastroDecididoPor(Integer cadastroDecididoPor) { this.cadastroDecididoPor = cadastroDecididoPor; }
 
     @Column(name = "criado_em")
     private LocalDateTime criadoEm;

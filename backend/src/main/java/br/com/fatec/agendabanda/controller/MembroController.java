@@ -3,6 +3,7 @@ package br.com.fatec.agendabanda.controller;
 import br.com.fatec.agendabanda.dto.MembroDto;
 import br.com.fatec.agendabanda.dto.MembroRequest;
 import br.com.fatec.agendabanda.dto.MusicoResumoDto;
+import br.com.fatec.agendabanda.dto.AuthDtos.DecisaoCadastroRequest;
 import br.com.fatec.agendabanda.security.TokenService;
 import br.com.fatec.agendabanda.service.MembroService;
 import br.com.fatec.agendabanda.service.PermissaoService;
@@ -54,6 +55,13 @@ public class MembroController {
     public MembroDto status(@PathVariable Integer id, @RequestBody Map<String, Boolean> body, HttpServletRequest http) {
         permissaoService.exigirAdmin(tokenService.sessaoObrigatoria(http));
         return membroService.alterarStatus(id, Boolean.TRUE.equals(body.get("ativo")));
+    }
+
+    @PatchMapping("/{id}/cadastro")
+    public MembroDto decidirCadastro(@PathVariable Integer id, @Valid @RequestBody DecisaoCadastroRequest body, HttpServletRequest http) {
+        var sessao = tokenService.sessaoObrigatoria(http);
+        permissaoService.exigirAdmin(sessao);
+        return membroService.decidirCadastro(id, body.aprovada(), sessao.codigo());
     }
 
 }

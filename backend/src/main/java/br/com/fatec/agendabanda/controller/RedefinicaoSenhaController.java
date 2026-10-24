@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PostMapping;
 
 import java.util.List;
 import java.util.Map;
@@ -30,10 +31,18 @@ public class RedefinicaoSenhaController {
         this.permissaoService = permissaoService;
     }
 
-    @GetMapping("/pendentes")
-    public List<SolicitacaoRedefinicaoSenhaDto> listarPendentes(HttpServletRequest http) {
+    @GetMapping("/abertas")
+    public List<SolicitacaoRedefinicaoSenhaDto> listarAbertas(HttpServletRequest http) {
         permissaoService.exigirAdmin(tokenService.sessaoObrigatoria(http));
-        return authService.listarSolicitacoesPendentes();
+        return authService.listarSolicitacoesAbertas();
+    }
+
+    @PostMapping("/{id}/cancelar")
+    public Map<String, String> cancelar(@PathVariable Integer id, HttpServletRequest http) {
+        var sessao = tokenService.sessaoObrigatoria(http);
+        permissaoService.exigirAdmin(sessao);
+        authService.cancelarSolicitacao(id, sessao.codigo());
+        return Map.of("mensagem", "Solicitação cancelada.");
     }
 
     @PatchMapping("/{id}")

@@ -12,25 +12,30 @@ import java.io.IOException;
 @Component
 public class AuthFilter extends OncePerRequestFilter {
     private final TokenService tokenService;
-    private final LimitadorRecuperacao limitadorRecuperacao;
+    private final LimitadorAutenticacao limitador;
 
-    public AuthFilter(TokenService tokenService, LimitadorRecuperacao limitadorRecuperacao) {
+    public AuthFilter(TokenService tokenService, LimitadorAutenticacao limitador) {
         this.tokenService = tokenService;
-        this.limitadorRecuperacao = limitadorRecuperacao;
+        this.limitador = limitador;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         String path = request.getRequestURI();
-        if ("POST".equalsIgnoreCase(request.getMethod())
-                && (path.equals("/api/auth/recuperar-senha") || path.equals("/api/auth/redefinir-senha"))) {
-            long espera = limitadorRecuperacao.segundosDeEspera(request.getRemoteAddr());
+        var tipo = switch (path) {
+            case "/api/auth/login" -> LimitadorAutenticacao.Tipo.LOGIN;
+            case "/api/auth/cadastro" -> LimitadorAutenticacao.Tipo.CADASTRO;
+            case "/api/auth/recuperar-senha", "/api/auth/redefinir-senha" -> LimitadorAutenticacao.Tipo.RECUPERACAO;
+            default -> null;
+        };
+        if ("POST".equalsIgnoreCase(request.getMethod()) && tipo != null) {
+            long espera = limitador.segundosDeEspera(tipo, request.getRemoteAddr());
             if (espera > 0) {
                 response.setStatus(429);
                 response.setHeader("Retry-After", Long.toString(espera));
                 response.setContentType("application/json;charset=UTF-8");
-                response.getWriter().write("{\"erro\":\"Muitas tentativas de recuperação. Aguarde alguns minutos e tente novamente.\"}");
+                response.getWriter().write("{\"erro\":\"Muitas tentativas. Aguarde e tente novamente.\"}");
                 return;
             }
         }

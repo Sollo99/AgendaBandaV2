@@ -29,13 +29,17 @@ class MembroServiceTest {
     @Mock BCryptPasswordEncoder passwordEncoder;
     @Mock MapperService mapperService;
     @Mock ParticipacaoEventoRepository participacaoRepository;
-    @InjectMocks MembroService service;
+    @Mock CicloRecuperacaoService ciclo;
+    @Mock br.com.fatec.agendabanda.security.TokenService tokenService;
+    MembroService service;
 
     private Membro membro;
     private Musico musico;
 
     @BeforeEach
     void preparar() {
+        service = new MembroService(membroRepository, musicoRepository, produtorRepository, passwordEncoder, mapperService, participacaoRepository, ciclo, tokenService,
+                java.time.Clock.fixed(java.time.Instant.parse("2026-10-24T12:00:00Z"), java.time.ZoneOffset.UTC));
         membro = new Membro();
         membro.setCodigo(7);
         membro.setNome("Ana");
@@ -49,7 +53,7 @@ class MembroServiceTest {
 
     @Test
     void editarMusicoPreservaAEntidadeReferenciadaPelasParticipacoes() {
-        when(membroRepository.findById(7)).thenReturn(Optional.of(membro));
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
         when(membroRepository.save(membro)).thenReturn(membro);
         when(musicoRepository.findById(7)).thenReturn(Optional.of(musico));
 
@@ -63,7 +67,7 @@ class MembroServiceTest {
 
     @Test
     void impedeRemoverPerfilComParticipacoes() {
-        when(membroRepository.findById(7)).thenReturn(Optional.of(membro));
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
         when(membroRepository.save(membro)).thenReturn(membro);
         when(musicoRepository.findById(7)).thenReturn(Optional.of(musico));
         when(participacaoRepository.existsByMusicoCodigo(7)).thenReturn(true);
@@ -73,7 +77,7 @@ class MembroServiceTest {
     }
 
     @Test
-    void cadastroPublicoCriaMusicoAtivoSemPermissaoAdministrativa() {
+    void cadastroPublicoCriaMusicoPendenteSemAcessoOuPermissaoAdministrativa() {
         when(membroRepository.save(any())).thenAnswer(invocation -> {
             Membro novo = invocation.getArgument(0);
             novo.setCodigo(8);
@@ -87,7 +91,8 @@ class MembroServiceTest {
         verify(musicoRepository).save(captor.capture());
         var novo = captor.getValue();
         assertEquals("Violão", novo.getInstrumento());
-        assertTrue(novo.getMembro().getAtivo());
+        assertFalse(novo.getMembro().getAtivo());
+        assertEquals("PENDENTE", novo.getMembro().getStatusCadastro());
         assertFalse(novo.getMembro().getAdministrador());
         assertEquals("hash-da-senha", novo.getMembro().getSenha());
     }
@@ -112,7 +117,7 @@ class MembroServiceTest {
     void ultimoAdministradorNaoPodeSerDesativadoPeloPatch() {
         membro.setAdministrador(true);
         when(membroRepository.bloquearAdministradoresAtivos()).thenReturn(List.of(membro));
-        when(membroRepository.findById(7)).thenReturn(Optional.of(membro));
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
         assertThrows(IllegalArgumentException.class, () -> service.alterarStatus(7, false));
         assertTrue(membro.getAtivo());
         verify(membroRepository, never()).save(any());
@@ -122,7 +127,7 @@ class MembroServiceTest {
     void ultimoAdministradorNaoPodePerderPermissaoNaEdicao() {
         membro.setAdministrador(true);
         when(membroRepository.bloquearAdministradoresAtivos()).thenReturn(List.of(membro));
-        when(membroRepository.findById(7)).thenReturn(Optional.of(membro));
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
         assertThrows(IllegalArgumentException.class, () -> service.atualizar(7, request("MUSICO")));
         assertTrue(membro.getAdministrador());
         verify(membroRepository, never()).save(any());
@@ -132,7 +137,7 @@ class MembroServiceTest {
     void ultimoAdministradorNaoPodeSerDesativadoPelaEdicaoCompleta() {
         membro.setAdministrador(true);
         when(membroRepository.bloquearAdministradoresAtivos()).thenReturn(List.of(membro));
-        when(membroRepository.findById(7)).thenReturn(Optional.of(membro));
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
         var request = new MembroRequest("Ana", "52998224725", "ana@example.com", "ana", null,
                 true, false, "MUSICO", "Teclado", null, null);
         assertThrows(IllegalArgumentException.class, () -> service.atualizar(7, request));
@@ -144,7 +149,7 @@ class MembroServiceTest {
         membro.setAdministrador(true);
         var outro = new Membro(); outro.setCodigo(8); outro.setAtivo(true); outro.setAdministrador(true);
         when(membroRepository.bloquearAdministradoresAtivos()).thenReturn(List.of(membro, outro));
-        when(membroRepository.findById(7)).thenReturn(Optional.of(membro));
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
         when(membroRepository.save(membro)).thenReturn(membro);
         service.alterarStatus(7, false);
         assertFalse(membro.getAtivo());
@@ -153,7 +158,7 @@ class MembroServiceTest {
 
     @Test
     void trocaPerfilRemoveSubtipoAntesDeAlterarDiscriminador() {
-        when(membroRepository.findById(7)).thenReturn(Optional.of(membro));
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
         when(membroRepository.save(membro)).thenReturn(membro);
         when(musicoRepository.findById(7)).thenReturn(Optional.of(musico));
         service.atualizar(7, request("PRODUTOR"));
@@ -176,5 +181,85 @@ class MembroServiceTest {
         verify(musicoRepository).save(captor.capture());
         assertEquals("52998224725", captor.getValue().getMembro().getCpf());
         assertEquals("MUSICO", captor.getValue().getMembro().getPerfil());
+    }
+
+    @Test
+    void cadastroDuplicadoNaoAlteraContaExistenteNemCriaOutroPerfil() {
+        when(membroRepository.findByCpf("52998224725")).thenReturn(Optional.of(membro));
+        service.criarCadastro(new CadastroRequest("Ana", "52998224725", "ana@example.com", "ana", "senha123", null, null));
+        verify(membroRepository, never()).save(any());
+        verify(musicoRepository, never()).save(any());
+    }
+
+    @Test
+    void statusDeAtivoNaoAprovaCadastroPendente() {
+        membro.setStatusCadastro("PENDENTE"); membro.setAtivo(false);
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
+        assertThrows(IllegalArgumentException.class, () -> service.alterarStatus(7, true));
+        assertFalse(membro.getAtivo());
+        verify(membroRepository, never()).save(any());
+    }
+
+    @Test
+    void edicaoCompletaNaoBurlaAprovacaoDoCadastro() {
+        membro.setStatusCadastro("PENDENTE"); membro.setAtivo(false);
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
+        assertThrows(IllegalArgumentException.class, () -> service.atualizar(7, request("MUSICO")));
+        assertEquals("PENDENTE", membro.getStatusCadastro());
+    }
+
+    @Test
+    void decisaoAdministrativaAprovaERegistraResponsavel() {
+        var admin = new Membro(); admin.setCodigo(1);
+        membro.setStatusCadastro("PENDENTE"); membro.setAtivo(false);
+        when(membroRepository.bloquearAdministradoresAtivos()).thenReturn(List.of(admin));
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
+        when(membroRepository.save(membro)).thenReturn(membro);
+        service.decidirCadastro(7, true, 1);
+        assertEquals("APROVADO", membro.getStatusCadastro());
+        assertTrue(membro.getAtivo());
+        assertFalse(membro.getAdministrador());
+        assertEquals(1, membro.getCadastroDecididoPor());
+        assertNotNull(membro.getCadastroDecididoEm());
+    }
+
+    @Test
+    void recusaNaoLiberaAcesso() {
+        var admin = new Membro(); admin.setCodigo(1);
+        membro.setStatusCadastro("PENDENTE"); membro.setAtivo(false);
+        when(membroRepository.bloquearAdministradoresAtivos()).thenReturn(List.of(admin));
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
+        when(membroRepository.save(membro)).thenReturn(membro);
+        service.decidirCadastro(7, false, 1);
+        assertEquals("RECUSADO", membro.getStatusCadastro());
+        assertFalse(membro.getAtivo());
+    }
+
+    @Test
+    void trocaAdministrativaDeSenhaRevogaPedidosESessoes() {
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
+        when(membroRepository.save(membro)).thenReturn(membro);
+        service.atualizar(7, new MembroRequest("Ana", "52998224725", "ana@example.com", "ana", "novaSenha", false, true, "MUSICO", null, null, null));
+        verify(ciclo).cancelarAbertas(eq(7), anyString());
+        verify(tokenService).removerSessoesDoMembro(7);
+    }
+
+    @Test
+    void trocaDeSenhaPeloPerfilTambemRevogaPedidosESessoes() {
+        membro.setSenha("hash-atual");
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
+        when(membroRepository.save(membro)).thenReturn(membro);
+        when(passwordEncoder.matches("senhaAtual", "hash-atual")).thenReturn(true);
+        service.atualizarProprio(7, new br.com.fatec.agendabanda.dto.PerfilRequest("Ana", "52998224725", "ana@example.com", "ana", "senhaAtual", "novaSenha", null, null));
+        verify(ciclo).cancelarAbertas(eq(7), anyString());
+        verify(tokenService).removerSessoesDoMembro(7);
+    }
+
+    @Test
+    void redefinicaoPeloPedidoUsaMesmaRevogacaoCentral() {
+        when(membroRepository.bloquearPorCodigo(7)).thenReturn(Optional.of(membro));
+        service.redefinirSenha(membro, "novaSenha");
+        verify(ciclo).cancelarAbertas(eq(7), anyString());
+        verify(tokenService).removerSessoesDoMembro(7);
     }
 }

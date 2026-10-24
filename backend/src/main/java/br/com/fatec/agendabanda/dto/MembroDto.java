@@ -11,6 +11,7 @@ public record MembroDto(
         String perfil,
         String instrumento,
         String biografia,
-        String especialidade
+        String especialidade,
+        String statusCadastro
 ) {
 }

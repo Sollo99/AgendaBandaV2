@@ -12,6 +12,8 @@ import java.util.Optional;
 
 public interface MembroRepository extends JpaRepository<Membro, Integer> {
     Optional<Membro> findByLogin(String login);
+    @Query("select m.codigo from Membro m where m.login = :login")
+    Optional<Integer> buscarCodigoPorLogin(@Param("login") String login);
     Optional<Membro> findByEmailIgnoreCase(String email);
     Optional<Membro> findByCpf(String cpf);
     boolean existsByLogin(String login);

@@ -32,8 +32,14 @@ CREATE TABLE membros (
     administrador BIT NOT NULL DEFAULT 0,
     ativo BIT NOT NULL DEFAULT 1,
     perfil NVARCHAR(10) NOT NULL DEFAULT N'MEMBRO',
+    status_cadastro NVARCHAR(10) NOT NULL DEFAULT N'APROVADO',
+    cadastro_decidido_em DATETIME2 NULL,
+    cadastro_decidido_por INT NULL,
     criado_em DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
     CONSTRAINT ck_membros_perfil CHECK (perfil IN (N'MEMBRO', N'MUSICO', N'PRODUTOR')),
+    CONSTRAINT ck_membros_cadastro CHECK (status_cadastro IN (N'PENDENTE', N'APROVADO', N'RECUSADO')),
+    CONSTRAINT ck_membros_cadastro_acesso CHECK (status_cadastro = N'APROVADO' OR (ativo = 0 AND administrador = 0)),
+    CONSTRAINT fk_membros_cadastro_administrador FOREIGN KEY (cadastro_decidido_por) REFERENCES membros(codigo),
     CONSTRAINT uq_membros_codigo_perfil UNIQUE (codigo, perfil),
     CONSTRAINT ck_membros_cpf CHECK (LEN(cpf) = 11 AND cpf NOT LIKE '%[^0-9]%')
 );
@@ -45,10 +51,15 @@ CREATE TABLE redefinicoes_senha (
     status NVARCHAR(15) NOT NULL DEFAULT 'PENDENTE',
     chave_hash CHAR(64) NOT NULL,
     solicitado_em DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    expira_em DATETIME2 NOT NULL,
     codigo_administrador INT NULL,
     decidido_em DATETIME2 NULL,
     concluido_em DATETIME2 NULL,
-    CONSTRAINT ck_redefinicoes_senha_status CHECK (status IN ('PENDENTE', 'APROVADA', 'RECUSADA', 'CONCLUIDA')),
+    encerrado_em DATETIME2 NULL,
+    motivo_encerramento NVARCHAR(200) NULL,
+    CONSTRAINT ck_redefinicoes_senha_status CHECK (status IN ('PENDENTE', 'APROVADA', 'RECUSADA', 'CONCLUIDA', 'EXPIRADA', 'CANCELADA')),
+    CONSTRAINT ck_redefinicoes_senha_prazo CHECK (expira_em > solicitado_em),
+    CONSTRAINT ck_redefinicoes_senha_encerramento CHECK ((status IN ('PENDENTE', 'APROVADA') AND encerrado_em IS NULL) OR (status NOT IN ('PENDENTE', 'APROVADA') AND encerrado_em IS NOT NULL)),
     CONSTRAINT fk_redefinicoes_senha_membro FOREIGN KEY (codigo_membro) REFERENCES membros(codigo) ON DELETE CASCADE,
     CONSTRAINT fk_redefinicoes_senha_administrador FOREIGN KEY (codigo_administrador) REFERENCES membros(codigo)
 );
@@ -68,6 +79,7 @@ CREATE INDEX ix_sessoes_token_expiracao ON sessoes(token_hash, expira_em);
 GO
 
 CREATE INDEX ix_redefinicoes_senha_status ON redefinicoes_senha(status, solicitado_em);
+CREATE INDEX ix_redefinicoes_senha_expiracao ON redefinicoes_senha(expira_em) INCLUDE (codigo_membro, status);
 GO
 
 CREATE UNIQUE INDEX ux_redefinicoes_senha_aberta ON redefinicoes_senha(codigo_membro)

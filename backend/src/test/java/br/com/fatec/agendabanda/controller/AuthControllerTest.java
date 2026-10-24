@@ -24,7 +24,7 @@ class AuthControllerTest {
     private static final String CHAVE = "codigo-portatil-com-pelo-menos-32-caracteres";
     @Mock AuthService authService;
     @Mock TokenService tokenService;
-    @Mock MembroService membroService;
+    @Mock br.com.fatec.agendabanda.service.CadastroPublicoService cadastroPublicoService;
     @InjectMocks AuthController controller;
 
     @Test
@@ -78,5 +78,23 @@ class AuthControllerTest {
                 new RedefinirSenhaRequest(12, null, "novaSenha"), null,
                 new MockHttpServletRequest(), new MockHttpServletResponse()));
         verifyNoInteractions(authService);
+    }
+
+    @Test
+    void cadastroPublicoRetorna202EMensagemSemDadosDoMembro() {
+        var request = new br.com.fatec.agendabanda.dto.CadastroRequest("Ana", "52998224725", "ana@example.com", "ana", "senha123", null, null);
+        var resposta = controller.cadastro(request);
+        assertEquals(202, resposta.getStatusCode().value());
+        assertEquals(java.util.Set.of("mensagem"), resposta.getBody().keySet());
+        verify(cadastroPublicoService).solicitar(request);
+    }
+
+    @Test
+    void expiracaoDaRecuperacaoTambemRemoveCookie() {
+        doThrow(new br.com.fatec.agendabanda.exception.RecuperacaoExpiradaException()).when(authService).redefinirSenha(any());
+        var response = new MockHttpServletResponse();
+        assertThrows(br.com.fatec.agendabanda.exception.RecuperacaoExpiradaException.class, () -> controller.redefinirSenha(
+                new RedefinirSenhaRequest(12, CHAVE, "novaSenha"), null, new MockHttpServletRequest(), response));
+        assertTrue(response.getHeader("Set-Cookie").contains("Max-Age=0"));
     }
 }

@@ -35,6 +35,20 @@ public class RedefinicaoSenha {
     @Column(name = "concluido_em")
     private LocalDateTime concluidoEm;
 
+    @Column(name = "expira_em")
+    private LocalDateTime expiraEm;
+    @Column(name = "encerrado_em")
+    private LocalDateTime encerradoEm;
+    @Column(name = "motivo_encerramento")
+    private String motivoEncerramento;
+
+    public LocalDateTime getExpiraEm() { return expiraEm; }
+    public void setExpiraEm(LocalDateTime expiraEm) { this.expiraEm = expiraEm; }
+    public LocalDateTime getEncerradoEm() { return encerradoEm; }
+    public void setEncerradoEm(LocalDateTime encerradoEm) { this.encerradoEm = encerradoEm; }
+    public String getMotivoEncerramento() { return motivoEncerramento; }
+    public void setMotivoEncerramento(String motivoEncerramento) { this.motivoEncerramento = motivoEncerramento; }
+
     public Integer getCodigoRedefinicao() { return codigoRedefinicao; }
     public void setCodigoRedefinicao(Integer codigoRedefinicao) { this.codigoRedefinicao = codigoRedefinicao; }
     public Membro getMembro() { return membro; }
