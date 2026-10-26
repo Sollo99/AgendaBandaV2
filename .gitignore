@@ -5,9 +5,15 @@ backend/target/
 web/node_modules/
 web/dist/
 
-# Testes Python / SQLite
+# Testes locais
 __pycache__/
-tests
+test/
+tests/
+__tests__/
+*Test.java
+*Tests.java
+*.test.*
+*.spec.*
 
 # IDE
 .idea/
