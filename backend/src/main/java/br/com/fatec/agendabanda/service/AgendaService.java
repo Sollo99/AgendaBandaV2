@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.Clock;
 import java.util.LinkedHashSet;
 import java.util.List;
 
@@ -27,12 +28,13 @@ public class AgendaService {
     private final ParticipacaoEventoRepository participacaoEventoRepository;
     private final MapperService mapper;
     private final PermissaoService permissaoService;
+    private final Clock clock;
 
     public AgendaService(AgendaRepository agendaRepository, EnsaioRepository ensaioRepository, ReuniaoRepository reuniaoRepository,
                          ShowEventoRepository showRepository, LocalEventoRepository localRepository, MusicoRepository musicoRepository,
                          MembroService membroService, LocalService localService,
                          CidadeRepository cidadeRepository, TipoEventoRepository tipoEventoRepository,
-                         ParticipacaoEventoRepository participacaoEventoRepository, MapperService mapper, PermissaoService permissaoService) {
+                         ParticipacaoEventoRepository participacaoEventoRepository, MapperService mapper, PermissaoService permissaoService, Clock clock) {
         this.agendaRepository = agendaRepository;
         this.ensaioRepository = ensaioRepository;
         this.reuniaoRepository = reuniaoRepository;
@@ -46,6 +48,7 @@ public class AgendaService {
         this.participacaoEventoRepository = participacaoEventoRepository;
         this.mapper = mapper;
         this.permissaoService = permissaoService;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -68,10 +71,11 @@ public class AgendaService {
         localRepository.bloquearAgendamento();
         var agenda = new Agenda();
         aplicarDados(agenda, request);
+        validarEstado(agenda);
         var musicosIds = idsUnicos(request.musicosIds());
         validarDisponibilidade(agenda, musicosIds);
         agenda.setCriador(membroService.buscarEntidade(sessao.codigo()));
-        agenda.setCriadoEm(LocalDateTime.now());
+        agenda.setCriadoEm(LocalDateTime.now(clock));
         var salvo = agendaRepository.save(agenda);
         salvarDetalhes(salvo, request);
         sincronizarParticipacoes(salvo, musicosIds);
@@ -82,15 +86,24 @@ public class AgendaService {
     public AgendaDto atualizar(Integer id, AgendaRequest request, SessaoUsuario sessao) {
         validarPeriodo(request);
         localRepository.bloquearAgendamento();
-        var agenda = buscar(id);
+        var agenda = bloquear(id);
         permissaoService.exigirAdminOuCriador(sessao, agenda);
+        if ("REALIZADO".equals(agenda.getStatus()) && request.status() != null && !"REALIZADO".equals(request.status())) {
+            throw new IllegalArgumentException("Um evento realizado deve permanecer realizado para preservar seu histórico.");
+        }
         var musicosIds = request.musicosIds() == null
                 ? participacaoEventoRepository.findByAgendaCodigoAgendaOrderByMusicoMembroNomeAsc(id).stream()
                     .map(item -> item.getMusico().getCodigo()).toList()
                 : idsUnicos(request.musicosIds());
         aplicarDados(agenda, request);
+        validarEstado(agenda);
+        boolean possuiPresenca = participacaoEventoRepository.findByAgendaCodigoAgendaOrderByMusicoMembroNomeAsc(id)
+                .stream().anyMatch(p -> p.getPresente() != null);
+        if (possuiPresenca && ("CANCELADO".equals(agenda.getStatus()) || agenda.getDataHoraInicio().isAfter(LocalDateTime.now(clock)))) {
+            throw new IllegalArgumentException("Um evento com presença ou ausência registrada não pode ser cancelado ou movido para o futuro.");
+        }
         validarDisponibilidade(agenda, musicosIds);
-        agenda.setAtualizadoEm(LocalDateTime.now());
+        agenda.setAtualizadoEm(LocalDateTime.now(clock));
         var salvo = agendaRepository.save(agenda);
         salvarDetalhes(salvo, request);
         sincronizarParticipacoes(salvo, musicosIds);
@@ -100,9 +113,17 @@ public class AgendaService {
     @Transactional
     public void excluir(Integer id, SessaoUsuario sessao) {
         localRepository.bloquearAgendamento();
-        var agenda = buscar(id);
+        var agenda = bloquear(id);
         permissaoService.exigirAdminOuCriador(sessao, agenda);
+        if ("REALIZADO".equals(agenda.getStatus()) || participacaoEventoRepository
+                .findByAgendaCodigoAgendaOrderByMusicoMembroNomeAsc(id).stream().anyMatch(p -> p.getPresente() != null)) {
+            throw new IllegalArgumentException("Não é possível excluir um evento realizado ou com presença registrada. Seu histórico deve ser preservado.");
+        }
         agendaRepository.delete(agenda);
+    }
+
+    private Agenda bloquear(Integer id) {
+        return agendaRepository.bloquearPorCodigo(id).orElseThrow(() -> new IllegalArgumentException("Evento não encontrado."));
     }
 
     private void aplicarDados(Agenda agenda, AgendaRequest request) {
@@ -152,6 +173,9 @@ public class AgendaService {
         var existentes = participacaoEventoRepository.findByAgendaCodigoAgendaOrderByMusicoMembroNomeAsc(agenda.getCodigoAgenda());
         for (var participacao : existentes) {
             if (!musicosIds.contains(participacao.getMusico().getCodigo())) {
+                if ("REALIZADO".equals(agenda.getStatus()) || participacao.getPresente() != null) {
+                    throw new IllegalArgumentException("Não é possível remover participantes de um evento realizado ou com presença registrada.");
+                }
                 participacaoEventoRepository.delete(participacao);
             }
         }
@@ -202,6 +226,12 @@ public class AgendaService {
     private void validarPeriodo(AgendaRequest request) {
         if (!request.dataHoraFim().isAfter(request.dataHoraInicio())) {
             throw new IllegalArgumentException("A data/hora final deve ser maior que a inicial.");
+        }
+    }
+
+    private void validarEstado(Agenda agenda) {
+        if ("REALIZADO".equals(agenda.getStatus()) && agenda.getDataHoraFim().isAfter(LocalDateTime.now(clock))) {
+            throw new IllegalArgumentException("Um evento só pode ser marcado como realizado após seu término.");
         }
     }
 

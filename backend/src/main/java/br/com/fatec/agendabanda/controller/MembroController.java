@@ -64,4 +64,10 @@ public class MembroController {
         return membroService.decidirCadastro(id, body.aprovada(), sessao.codigo());
     }
 
+    @PostMapping("/{id}/cadastro/liberar-identificadores")
+    public MembroDto liberarIdentificadores(@PathVariable Integer id, HttpServletRequest http) {
+        var sessao = tokenService.sessaoObrigatoria(http);
+        permissaoService.exigirAdmin(sessao);
+        return membroService.liberarIdentificadores(id, sessao.codigo());
+    }
 }

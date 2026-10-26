@@ -79,6 +79,7 @@ public class MembroService {
     public MembroDto atualizar(Integer id, MembroRequest request) {
         var administradores = membroRepository.bloquearAdministradoresAtivos();
         var membro = buscarParaAtualizar(id);
+        exigirIdentificadoresReservados(membro);
         protegerUltimoAdministrador(membro, Boolean.TRUE.equals(request.administrador()),
                 request.ativo() == null || request.ativo(), administradores);
         if (!"APROVADO".equals(membro.getStatusCadastro())
@@ -143,12 +144,39 @@ public class MembroService {
         if ("APROVADO".equals(membro.getStatusCadastro()) || (!aprovada && "RECUSADO".equals(membro.getStatusCadastro()))) {
             throw new IllegalArgumentException("O cadastro já foi analisado.");
         }
+        exigirIdentificadoresReservados(membro);
         membro.setStatusCadastro(aprovada ? "APROVADO" : "RECUSADO");
         membro.setAtivo(aprovada);
         membro.setAdministrador(false);
         membro.setCadastroDecididoEm(LocalDateTime.now(clock));
         membro.setCadastroDecididoPor(codigoAdministrador);
         return mapperService.membroDto(membroRepository.save(membro));
+    }
+
+    @Transactional
+    public MembroDto liberarIdentificadores(Integer id, Integer codigoAdministrador) {
+        if (membroRepository.bloquearAdministradoresAtivos().stream().noneMatch(m -> m.getCodigo().equals(codigoAdministrador))) {
+            throw new SecurityException("Apenas administradores ativos podem liberar identificadores.");
+        }
+        var membro = buscarParaAtualizar(id);
+        if (!"RECUSADO".equals(membro.getStatusCadastro())) {
+            throw new IllegalArgumentException("Somente cadastros recusados podem ter seus identificadores liberados.");
+        }
+        if (membro.getIdentificadoresLiberadosEm() != null) return mapperService.membroDto(membro);
+        membro.setCpf(null);
+        membro.setEmail(null);
+        membro.setLogin(null);
+        membro.setSenha(passwordEncoder.encode(java.util.UUID.randomUUID().toString()));
+        membro.setIdentificadoresLiberadosEm(LocalDateTime.now(clock));
+        membro.setIdentificadoresLiberadosPor(codigoAdministrador);
+        tokenService.removerSessoesDoMembro(id);
+        return mapperService.membroDto(membroRepository.saveAndFlush(membro));
+    }
+
+    private void exigirIdentificadoresReservados(Membro membro) {
+        if (membro.getIdentificadoresLiberadosEm() != null) {
+            throw new IllegalArgumentException("Os identificadores deste cadastro foram liberados. É necessário fazer um novo cadastro.");
+        }
     }
 
     @Transactional(readOnly = true)

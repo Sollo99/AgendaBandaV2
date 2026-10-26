@@ -23,14 +23,19 @@ spring:
     time-zone: America/Sao_Paulo
 app:
   auth:
+    sessao:
+      varredura-ms: ${AUTH_SESSAO_VARREDURA_MS:60000}
     login:
       limite: ${AUTH_LOGIN_LIMITE:20}
+      limite-global: ${AUTH_LOGIN_LIMITE_GLOBAL:200}
       janela-minutos: ${AUTH_LOGIN_JANELA_MINUTOS:15}
     cadastro:
       limite: ${AUTH_CADASTRO_LIMITE:5}
+      limite-global: ${AUTH_CADASTRO_LIMITE_GLOBAL:50}
       janela-minutos: ${AUTH_CADASTRO_JANELA_MINUTOS:60}
     recuperacao:
       limite: ${AUTH_RECUPERACAO_LIMITE:10}
+      limite-global: ${AUTH_RECUPERACAO_LIMITE_GLOBAL:100}
       janela-minutos: ${AUTH_RECUPERACAO_JANELA_MINUTOS:15}
       pendente-horas: ${AUTH_RECUPERACAO_PENDENTE_HORAS:24}
       aprovada-horas: ${AUTH_RECUPERACAO_APROVADA_HORAS:2}

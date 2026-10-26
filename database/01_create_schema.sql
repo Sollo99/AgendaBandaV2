@@ -25,9 +25,9 @@ GO
 CREATE TABLE membros (
     codigo INT IDENTITY(1,1) PRIMARY KEY,
     nome NVARCHAR(100) NOT NULL,
-    cpf NVARCHAR(14) NOT NULL UNIQUE,
-    email NVARCHAR(120) NOT NULL UNIQUE,
-    login NVARCHAR(50) NOT NULL UNIQUE,
+    cpf NVARCHAR(14) NULL,
+    email NVARCHAR(120) NULL,
+    login NVARCHAR(50) NULL,
     senha NVARCHAR(255) NOT NULL,
     administrador BIT NOT NULL DEFAULT 0,
     ativo BIT NOT NULL DEFAULT 1,
@@ -35,14 +35,27 @@ CREATE TABLE membros (
     status_cadastro NVARCHAR(10) NOT NULL DEFAULT N'APROVADO',
     cadastro_decidido_em DATETIME2 NULL,
     cadastro_decidido_por INT NULL,
+    identificadores_liberados_em DATETIME2 NULL,
+    identificadores_liberados_por INT NULL,
     criado_em DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
     CONSTRAINT ck_membros_perfil CHECK (perfil IN (N'MEMBRO', N'MUSICO', N'PRODUTOR')),
     CONSTRAINT ck_membros_cadastro CHECK (status_cadastro IN (N'PENDENTE', N'APROVADO', N'RECUSADO')),
     CONSTRAINT ck_membros_cadastro_acesso CHECK (status_cadastro = N'APROVADO' OR (ativo = 0 AND administrador = 0)),
     CONSTRAINT fk_membros_cadastro_administrador FOREIGN KEY (cadastro_decidido_por) REFERENCES membros(codigo),
+    CONSTRAINT fk_membros_liberacao_administrador FOREIGN KEY (identificadores_liberados_por) REFERENCES membros(codigo),
+    CONSTRAINT ck_membros_identificadores CHECK (
+        (cpf IS NOT NULL AND email IS NOT NULL AND login IS NOT NULL
+            AND identificadores_liberados_em IS NULL AND identificadores_liberados_por IS NULL)
+        OR (status_cadastro = N'RECUSADO' AND cpf IS NULL AND email IS NULL AND login IS NULL
+            AND identificadores_liberados_em IS NOT NULL AND identificadores_liberados_por IS NOT NULL)),
     CONSTRAINT uq_membros_codigo_perfil UNIQUE (codigo, perfil),
     CONSTRAINT ck_membros_cpf CHECK (LEN(cpf) = 11 AND cpf NOT LIKE '%[^0-9]%')
 );
+GO
+
+CREATE UNIQUE INDEX ux_membros_cpf ON membros(cpf) WHERE cpf IS NOT NULL;
+CREATE UNIQUE INDEX ux_membros_email ON membros(email) WHERE email IS NOT NULL;
+CREATE UNIQUE INDEX ux_membros_login ON membros(login) WHERE login IS NOT NULL;
 GO
 
 CREATE TABLE redefinicoes_senha (
@@ -76,6 +89,7 @@ CREATE TABLE sessoes (
 GO
 
 CREATE INDEX ix_sessoes_token_expiracao ON sessoes(token_hash, expira_em);
+CREATE INDEX ix_sessoes_expiracao ON sessoes(expira_em);
 GO
 
 CREATE INDEX ix_redefinicoes_senha_status ON redefinicoes_senha(status, solicitado_em);
@@ -110,14 +124,16 @@ CREATE TABLE tipos_evento (
     nome NVARCHAR(50) NOT NULL UNIQUE,
     descricao NVARCHAR(300) NULL,
     categoria_detalhe NVARCHAR(15) NOT NULL DEFAULT 'EVENTO',
-    ativo BIT NOT NULL DEFAULT 1
+    ativo BIT NOT NULL DEFAULT 1,
+    CONSTRAINT ck_tipos_evento_categoria CHECK (categoria_detalhe IN (N'EVENTO', N'ENSAIO', N'SHOW', N'REUNIAO'))
 );
 GO
 
 CREATE TABLE cidades (
     codigo_cidade INT IDENTITY(1,1) PRIMARY KEY,
-    nome NVARCHAR(100) NOT NULL,
-    uf CHAR(2) NOT NULL
+    nome NVARCHAR(100) COLLATE Latin1_General_100_CI_AS NOT NULL,
+    uf CHAR(2) COLLATE Latin1_General_100_CI_AS NOT NULL,
+    CONSTRAINT uq_cidades_nome_uf UNIQUE (nome, uf)
 );
 GO
 
@@ -184,7 +200,8 @@ CREATE TABLE participacao_evento (
     PRIMARY KEY (codigo_agenda, cod_musico),
     CONSTRAINT fk_participacao_evento_agenda FOREIGN KEY (codigo_agenda) REFERENCES agenda(codigo_agenda) ON DELETE CASCADE,
     CONSTRAINT fk_participacao_evento_musico FOREIGN KEY (cod_musico) REFERENCES musicos(codigo),
-    CONSTRAINT ck_participacao_status CHECK (status_confirmacao IN (N'PENDENTE', N'CONFIRMADO', N'RECUSADO'))
+    CONSTRAINT ck_participacao_status CHECK (status_confirmacao IN (N'PENDENTE', N'CONFIRMADO', N'RECUSADO')),
+    CONSTRAINT ck_participacao_presenca_confirmada CHECK (presente IS NULL OR presente = 0 OR status_confirmacao = N'CONFIRMADO')
 );
 GO
 

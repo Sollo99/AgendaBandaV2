@@ -4,14 +4,22 @@ import br.com.fatec.agendabanda.dto.CadastroRequest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import java.sql.SQLException;
+import br.com.fatec.agendabanda.security.LimitadorAutenticacao;
 
 @Service
 public class CadastroPublicoService {
     private final MembroService membros;
-    public CadastroPublicoService(MembroService membros) { this.membros = membros; }
+    private final LimitadorAutenticacao limitador;
+    public CadastroPublicoService(MembroService membros, LimitadorAutenticacao limitador) {
+        this.membros = membros;
+        this.limitador = limitador;
+    }
 
     // Fora da transação de criação: uma colisão concorrente já foi revertida antes da resposta pública.
     public void solicitar(CadastroRequest request) {
+        limitador.verificarIdentificador(LimitadorAutenticacao.Tipo.CADASTRO, "cpf:" + request.cpf().replaceAll("[^0-9]", ""));
+        limitador.verificarIdentificador(LimitadorAutenticacao.Tipo.CADASTRO, "email:" + request.email().trim());
+        limitador.verificarIdentificador(LimitadorAutenticacao.Tipo.CADASTRO, "login:" + request.login().trim());
         try {
             membros.criarCadastro(request);
         } catch (DataIntegrityViolationException ex) {

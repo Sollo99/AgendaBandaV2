@@ -12,6 +12,11 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler(LimiteAutenticacaoException.class)
+    public ResponseEntity<Map<String, String>> limiteAutenticacao(LimiteAutenticacaoException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", Long.toString(ex.getSegundos())).body(Map.of("erro", ex.getMessage()));
+    }
     @ExceptionHandler({CredenciaisInvalidasException.class, SessaoExpiradaException.class})
     public ResponseEntity<Map<String, String>> credenciaisInvalidas(IllegalArgumentException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("erro", ex.getMessage()));

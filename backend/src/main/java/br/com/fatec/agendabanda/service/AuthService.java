@@ -6,6 +6,7 @@ import br.com.fatec.agendabanda.repository.MembroRepository;
 import br.com.fatec.agendabanda.repository.RedefinicaoSenhaRepository;
 import br.com.fatec.agendabanda.security.SessaoUsuario;
 import br.com.fatec.agendabanda.security.TokenService;
+import br.com.fatec.agendabanda.security.LimitadorAutenticacao;
 import br.com.fatec.agendabanda.exception.CredenciaisInvalidasException;
 import br.com.fatec.agendabanda.exception.RecuperacaoExpiradaException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -32,10 +33,11 @@ public class AuthService {
     private final CicloRecuperacaoService ciclo;
     private final Clock clock;
     private final String hashFicticio;
+    private final LimitadorAutenticacao limitador;
 
     public AuthService(MembroRepository membroRepository, BCryptPasswordEncoder passwordEncoder, TokenService tokenService, MapperService mapperService,
                        RedefinicaoSenhaRepository redefinicaoSenhaRepository, MembroService membroService,
-                       CicloRecuperacaoService ciclo, Clock clock) {
+                       CicloRecuperacaoService ciclo, Clock clock, LimitadorAutenticacao limitador) {
         this.membroRepository = membroRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
@@ -44,12 +46,14 @@ public class AuthService {
         this.membroService = membroService;
         this.ciclo = ciclo;
         this.clock = clock;
+        this.limitador = limitador;
         this.hashFicticio = passwordEncoder.encode(UUID.randomUUID().toString());
     }
 
     @Transactional
     public LoginResponse login(LoginRequest request) {
         var codigo = membroRepository.buscarCodigoPorLogin(request.login().trim()).orElse(null);
+        limitador.verificarIdentificador(LimitadorAutenticacao.Tipo.LOGIN, codigo == null ? "login:" + request.login().trim() : "membro:" + codigo);
         var membro = codigo == null ? null : membroRepository.bloquearPorCodigo(codigo).orElse(null);
         boolean senhaConfere = passwordEncoder.matches(request.senha(), membro == null ? hashFicticio : membro.getSenha());
         if (!senhaConfere || membro == null || !Boolean.TRUE.equals(membro.getAtivo())
@@ -65,6 +69,8 @@ public class AuthService {
     @Transactional
     public RecuperarSenhaResponse solicitarRedefinicaoSenha(RecuperarSenhaRequest request) {
         var codigoMembro = membroRepository.buscarCodigoPorIdentificador(request.identificador().trim()).orElse(null);
+        limitador.verificarIdentificador(LimitadorAutenticacao.Tipo.RECUPERACAO,
+                codigoMembro == null ? "identificador:" + request.identificador().trim() : "membro:" + codigoMembro);
         if (codigoMembro == null) {
             return respostaPublica(request.chaveSolicitacao());
         }
@@ -95,6 +101,9 @@ public class AuthService {
 
     @Transactional(noRollbackFor = RecuperacaoExpiradaException.class)
     public void redefinirSenha(RedefinirSenhaRequest request) {
+        var alvo = redefinicaoSenhaRepository.buscarCodigoMembro(request.codigoSolicitacao()).orElse(null);
+        limitador.verificarIdentificador(LimitadorAutenticacao.Tipo.RECUPERACAO,
+                alvo == null ? "solicitacao:" + request.codigoSolicitacao() : "membro:" + alvo);
         bloquearMembroDaSolicitacao(request.codigoSolicitacao());
         var redefinicao = redefinicaoSenhaRepository.findByCodigoRedefinicaoAndStatus(request.codigoSolicitacao(), "APROVADA")
                 .orElseThrow(() -> new IllegalArgumentException("A solicitação não está aprovada ou já foi utilizada."));

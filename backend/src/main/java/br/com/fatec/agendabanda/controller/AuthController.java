@@ -45,7 +45,9 @@ public class AuthController {
     @PostMapping("/cadastro")
     public ResponseEntity<Map<String, String>> cadastro(@Valid @RequestBody CadastroRequest request) {
         cadastroPublicoService.solicitar(request);
-        return ResponseEntity.accepted().body(Map.of("mensagem", "Se os dados forem válidos e ainda não estiverem cadastrados, a solicitação será analisada por um administrador."));
+        return ResponseEntity.accepted().body(Map.of("mensagem", "Se os dados forem válidos e ainda não estiverem cadastrados, a solicitação será analisada por um administrador. "
+                + "CPF, e-mail ou login já utilizados impedem um novo cadastro. Caso já tenha conta, tente entrar ou recuperar a senha. "
+                + "Se seu cadastro foi recusado ou você não conseguir prosseguir, contate um administrador para revisar o pedido e, quando cabível, liberar os dados para novo cadastro."));
     }
 
     @PostMapping("/recuperar-senha")

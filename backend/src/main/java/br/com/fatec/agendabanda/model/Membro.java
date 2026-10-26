@@ -25,6 +25,15 @@ public class Membro {
     private LocalDateTime cadastroDecididoEm;
     @Column(name = "cadastro_decidido_por")
     private Integer cadastroDecididoPor;
+    @Column(name = "identificadores_liberados_em")
+    private LocalDateTime identificadoresLiberadosEm;
+    @Column(name = "identificadores_liberados_por")
+    private Integer identificadoresLiberadosPor;
+
+    public LocalDateTime getIdentificadoresLiberadosEm() { return identificadoresLiberadosEm; }
+    public void setIdentificadoresLiberadosEm(LocalDateTime valor) { this.identificadoresLiberadosEm = valor; }
+    public Integer getIdentificadoresLiberadosPor() { return identificadoresLiberadosPor; }
+    public void setIdentificadoresLiberadosPor(Integer valor) { this.identificadoresLiberadosPor = valor; }
 
     public String getStatusCadastro() { return statusCadastro; }
     public void setStatusCadastro(String statusCadastro) { this.statusCadastro = statusCadastro; }
