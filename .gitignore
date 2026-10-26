@@ -5,6 +5,10 @@ backend/target/
 web/node_modules/
 web/dist/
 
+# Testes Python / SQLite
+__pycache__/
+tests
+
 # IDE
 .idea/
 .vscode/
