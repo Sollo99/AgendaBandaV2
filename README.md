@@ -137,7 +137,7 @@ database/01_create_schema.sql
 database/02_insert_data.sql
 ```
 
-Esses scripts criam o banco AgendaBanda, o login agenda_user e os dados de teste.
+Esses scripts criam o banco AgendaBanda, o login agenda_user e os dados de demonstração.
 
 Os scripts `01_create_schema.sql` e `02_insert_data.sql` criam toda a estrutura atual, incluindo tipos de evento, participações, redefinições de senha e sessões.
 
@@ -177,7 +177,9 @@ DB_PASSWORD=agenda123
 
 O cadastro público cria um membro com perfil de músico, sem permissão administrativa e com cadastro `PENDENTE`, sem acesso à agenda. Na tela Usuários, um administrador aprova ou recusa o cadastro. A aprovação libera a conta; a recusa mantém o acesso bloqueado e pode ser reconsiderada pelo administrador. Cadastro pendente/recusado é diferente de conta aprovada e desativada: ativar a conta ou editar sua flag não substitui a aprovação. A resposta pública é sempre HTTP 202 com a mesma mensagem para novos cadastros e CPF/e-mail/login já existentes, sem retornar os dados do membro nem alterar contas existentes. Erros de formato continuam sendo informados.
 
-Músicos inativos não aparecem na seleção de novos participantes; os vínculos antigos são mantidos e podem ser removidos ao editar o evento. A edição administrativa atualiza o perfil existente. A troca de músico para outro perfil é bloqueada se houver participações vinculadas.
+A mensagem pública explica que CPF/e-mail/login já utilizados impedem outro cadastro e orienta entrar, recuperar a senha ou contatar um administrador. Para um cadastro recusado, o administrador pode usar **Liberar identificadores**: CPF, e-mail e login são removidos daquele pedido e ficam disponíveis para novo cadastro. O registro recusado mantém nome, código, decisão original e responsável/data da liberação; ele permanece inativo e não pode mais ser aprovado ou editado. Antes da liberação, o administrador ainda pode reconsiderar a recusa. Contas aprovadas ou pendentes não permitem essa liberação.
+
+Músicos inativos não aparecem na seleção de novos participantes; os vínculos antigos são mantidos e podem ser removidos ao editar eventos ainda não realizados e sem presença/ausência registrada para o participante. A edição administrativa atualiza o perfil existente. A troca de músico para outro perfil é bloqueada se houver participações vinculadas.
 
 Membros são desativados e reativados pelo administrador. Não existe endpoint de exclusão física de membros: isso preserva vínculos e evita perder registros de eventos e decisões de recuperação de senha. O último administrador ativo não pode ser desativado nem perder a permissão administrativa. Essa regra vale tanto para a edição completa quanto para a ação de ativar/desativar.
 
@@ -191,11 +193,23 @@ Depois da aprovação, o membro pode informar tanto o login quanto o e-mail para
 
 Pedidos públicos retornam a mesma mensagem e um código opaco para contas existentes, inexistentes, inativas ou com outro pedido aberto. Receber um código não confirma a existência da conta nem a aprovação. Somente uma chave de pedido aprovado e dentro do prazo libera a redefinição. O SQL permite uma única solicitação aberta (`PENDENTE` ou `APROVADA`) por membro; pedidos concorrentes são serializados.
 
-Há limites independentes por IP: 20 requisições de login em 15 minutos, 5 de cadastro em 60 minutos e 10 de recuperação/conclusão em 15 minutos. Todas as tentativas contam, inclusive as bem-sucedidas. Os limites são configuráveis no `.env`; quando excedidos, a API retorna HTTP 429 com `Retry-After`. O controle fica em memória por instância do backend. O login retorna a mesma mensagem e HTTP 401 para credenciais incorretas, conta inexistente, desativada ou ainda sem aprovação; a comparação BCrypt ocorre antes da decisão, usando hash fictício para login inexistente.
+Há limites independentes por IP e por alvo: 20 requisições de login em 15 minutos, 5 de cadastro em 60 minutos e 10 de recuperação/conclusão em 15 minutos. Mudar de IP não zera o contador do alvo: login usa o código da conta quando existente; recuperação por login/e-mail e conclusão usam o mesmo código do membro; cadastro contabiliza CPF, e-mail e login separadamente. Os identificadores são normalizados e os contadores guardam hashes. Há também tetos globais por fluxo, respectivamente 200, 50 e 100 requisições nas mesmas janelas, limitando tentativas com vários IPs e alvos.
+
+Todas as tentativas que chegam a cada contador contam, inclusive as bem-sucedidas. Os valores são configuráveis no `.env`; excesso retorna HTTP 429 com `Retry-After`. O controle fica em memória por instância do backend e reinicia com o processo; várias instâncias exigem um armazenamento compartilhado ou controle equivalente no gateway. Um teto global atingido também afeta usuários legítimos até a janela vencer. O login retorna a mesma mensagem e HTTP 401 para credenciais incorretas, conta inexistente, desativada ou ainda sem aprovação; a comparação BCrypt ocorre antes da decisão, usando hash fictício para login inexistente.
 
 A sessão dura 8 horas. Ao abrir o frontend, o token é validado em `/api/membros/me` antes de mostrar telas privadas. Um HTTP 401 em chamada autenticada limpa a sessão e volta ao login com aviso único, inclusive com várias chamadas simultâneas. HTTP 403 e falha de rede não encerram a sessão; uma falha na verificação inicial oferece nova tentativa. Erro no login público não dispara aviso de sessão expirada, e uma resposta antiga não encerra um login mais recente.
 
-Ao editar eventos, os participantes mantidos preservam confirmação, presença, observação e data de resposta. Uma lista de músicos omitida mantém os vínculos; uma lista vazia remove todos; somente os novos entram como `PENDENTE`. As respostas da agenda enviam apenas código e nome do criador e código, nome e instrumento dos músicos, sem CPF, e-mail ou credenciais.
+Uma tarefa remove as sessões com `expira_em <= agora` a cada minuto, configurável por `AUTH_SESSAO_VARREDURA_MS`. A sessão vencida já é recusada na autenticação mesmo antes da limpeza. O formulário de login inicia vazio; as contas de demonstração continuam listadas nesta documentação.
+
+Ao editar eventos, os participantes mantidos preservam confirmação, presença, observação e data de resposta. Uma lista de músicos omitida mantém os vínculos; uma lista vazia remove os participantes somente quando não houver impedimentos de histórico; somente os novos entram como `PENDENTE`. Eventos `REALIZADO` não podem ser excluídos, reabertos ou perder participantes. Eventos com presença ou ausência registrada também não podem ser excluídos, e o participante com esse registro não pode ser removido. As respostas da agenda enviam apenas código e nome do criador e código, nome e instrumento dos músicos, sem CPF, e-mail ou credenciais.
+
+O músico só altera sua confirmação quando o evento está `AGENDADO` e seu início ainda está no futuro. No instante inicial e depois, ou se cancelado/realizado, a resposta é bloqueada. O administrador continua podendo corrigir participações e registrar presença em eventos realizados. As operações de participação bloqueiam primeiro a linha do evento para não disputar com cancelamento/exclusão sem serialização.
+
+O administrador só registra presença ou ausência a partir do início de um evento não cancelado. `presente=true` exige `statusConfirmacao=CONFIRMADO`, inclusive em mudanças posteriores; ausência pode ser registrada sem confirmação. Para uma participação pendente ou recusada, o botão **Confirmar e marcar presente** envia as duas alterações na mesma ação. A regra de confirmação também é protegida por CHECK no banco. Eventos com presença/ausência registrada não podem ser cancelados ou movidos para o futuro. `REALIZADO` exige que o fim do evento já tenha ocorrido, tanto na criação quanto na edição; o formulário e o backend verificam essa condição pelo término informado.
+
+O schema exige cidade única por `(nome, uf)`, com collation `Latin1_General_100_CI_AS` nesses campos para não distinguir maiúsculas/minúsculas. A consulta prévia da aplicação melhora a mensagem de duplicidade; a restrição única protege inserções e atualizações concorrentes. `categoria_detalhe` também possui CHECK com os valores `EVENTO`, `ENSAIO`, `SHOW` e `REUNIAO`.
+
+Ao editar a própria conta, a interface aplica imediatamente o perfil devolvido pelo backend. Se o administrador remover sua própria permissão, a navegação administrativa é retirada e a tela volta à agenda, sem tentar recarregar a lista de membros. Desativar a própria conta encerra a sessão. A proteção do último administrador continua sendo aplicada pelo backend.
 
 Eventos não cancelados reservam local e todos os músicos vinculados, independentemente da confirmação individual. Há conflito quando `início existente < fim solicitado` e `fim existente > início solicitado`; horários consecutivos são permitidos. Eventos cancelados não reservam horário, e sua reativação passa pela mesma validação. A agenda usa horários locais da banda. No SQL Server, as escritas da agenda e a exclusão de locais obtêm um bloqueio transacional na tabela de locais antes da validação: isso prioriza consistência para o volume de uma banda, serializando essas operações entre instâncias do backend. Escritas SQL feitas fora da aplicação precisam seguir a mesma regra de agendamento.
 
@@ -239,17 +253,19 @@ Frontend padrão:
 http://localhost:5173
 ```
 
-Para executar os testes de sessão da API no frontend, use `npm test` dentro de `web`. Para compilar a interface, use `npm run build`. Os testes Java ficam em `backend/src/test` e podem ser executados com `mvn test` dentro de `backend`.
+Para compilar a interface, use `npm run build` dentro de `web`.
 
 ---
 
-# Logins de Teste
+# Contas de demonstração
 
 ```bash
 admin / admin
 usuario / usuario
 teste / teste
 ```
+
+O seed contém 30 eventos entre outubro e dezembro de 2026: 10 ensaios realizados em outubro, com presença, 10 shows agendados em novembro e 10 reuniões agendadas em dezembro. Em 26/10/2026 há exemplos passados e futuros.
 
 ---
 
@@ -273,6 +289,7 @@ POST /api/membros
 PUT /api/membros/{id}
 PATCH /api/membros/{id}/status
 PATCH /api/membros/{id}/cadastro
+POST /api/membros/{id}/cadastro/liberar-identificadores
 GET /api/locais
 POST /api/locais
 PUT /api/locais/{id}
