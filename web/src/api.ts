@@ -63,6 +63,7 @@ export const api = {
   atualizarMembro: (id: number, data: unknown) => request<Membro>(`/membros/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   alterarStatusMembro: (id: number, ativo: boolean) => request<Membro>(`/membros/${id}/status`, { method: "PATCH", body: JSON.stringify({ ativo }) }),
   decidirCadastro: (id: number, aprovada: boolean) => request<Membro>(`/membros/${id}/cadastro`, { method: "PATCH", body: JSON.stringify({ aprovada }) }),
+  liberarIdentificadores: (id: number) => request<Membro>(`/membros/${id}/cadastro/liberar-identificadores`, { method: "POST" }),
   obterMeuPerfil: () => request<Membro>("/membros/me"),
   atualizarMeuPerfil: (data: unknown) => request<Membro>("/membros/me", { method: "PUT", body: JSON.stringify(data) }),
   listarCidades: () => request<Cidade[]>("/cidades"),

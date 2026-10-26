@@ -7,8 +7,8 @@ type Modo = "login" | "cadastro" | "recuperar" | "redefinir";
 
 export default function LoginPage({ onLogin, mensagemInicial = "" }: { onLogin: (usuario: Membro) => void; mensagemInicial?: string }) {
   const [modo, setModo] = useState<Modo>("login");
-  const [login, setLogin] = useState("usuario");
-  const [senha, setSenha] = useState("usuario");
+  const [login, setLogin] = useState("");
+  const [senha, setSenha] = useState("");
   const [cadastro, setCadastro] = useState({ nome: "", cpf: "", email: "", login: "", senha: "", instrumento: "", biografia: "" });
   const [identificador, setIdentificador] = useState("");
   const [codigoInformado, setCodigoInformado] = useState("");

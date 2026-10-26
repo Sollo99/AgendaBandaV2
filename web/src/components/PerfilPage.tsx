@@ -7,9 +7,9 @@ import type { Membro } from "../types";
 export default function PerfilPage({ usuario, onAtualizar }: { usuario: Membro; onAtualizar: (usuario: Membro) => void }) {
   const [form, setForm] = useState({
     nome: usuario.nome,
-    cpf: usuario.cpf,
-    email: usuario.email,
-    login: usuario.login,
+    cpf: usuario.cpf ?? "",
+    email: usuario.email ?? "",
+    login: usuario.login ?? "",
     senhaAtual: "",
     novaSenha: "",
     instrumento: usuario.instrumento ?? "",

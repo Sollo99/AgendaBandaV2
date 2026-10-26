@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Badge, Box, Button, Flex, Grid, Heading, HStack, Stack, Text } from "@chakra-ui/react";
 import { api } from "../api";
+import { podeRegistrarPresenca } from "../regrasEvento";
 import type { Agenda, Cidade, LocalEvento, Membro, MusicoResumo, TipoEvento } from "../types";
 import EventForm from "./EventForm";
 
@@ -125,10 +126,14 @@ export default function AgendaPage({ usuario }: { usuario: Membro }) {
 
   async function excluir(evento: Agenda) {
     if (!confirm(`Excluir o evento "${evento.titulo}"?`)) return;
-    await api.excluirAgenda(evento.codigoAgenda);
-    setSelecionado(null);
-    setMostrarForm(false);
-    await carregar();
+    try {
+      await api.excluirAgenda(evento.codigoAgenda);
+      setSelecionado(null);
+      setMostrarForm(false);
+      await carregar();
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : "Não foi possível excluir o evento.");
+    }
   }
 
   function podeAlterar(evento: Agenda) {
@@ -294,11 +299,14 @@ export default function AgendaPage({ usuario }: { usuario: Membro }) {
                         <Flex key={participacao.musico.codigo} justify="space-between" align="center" gap="2" wrap="wrap">
                           <Text>{participacao.musico.nome}: {participacao.statusConfirmacao.toLowerCase()}{presenca}</Text>
                           <HStack>
-                            {propria && <>
+                            {propria && selecionado.status === "AGENDADO" && dataEvento(selecionado.dataHoraInicio).getTime() > Date.now() && <>
                               <Button size="xs" variant="outline" onClick={() => atualizarParticipacao(selecionado, participacao.musico.codigo, { statusConfirmacao: "CONFIRMADO" }, true)}>Confirmar</Button>
                               <Button size="xs" variant="outline" onClick={() => atualizarParticipacao(selecionado, participacao.musico.codigo, { statusConfirmacao: "RECUSADO" }, true)}>Recusar</Button>
                             </>}
-                            {usuario.administrador && <Button size="xs" variant="outline" onClick={() => atualizarParticipacao(selecionado, participacao.musico.codigo, { presente: participacao.presente !== true })}>{participacao.presente === true ? "Marcar ausente" : "Marcar presente"}</Button>}
+                            {usuario.administrador && podeRegistrarPresenca(selecionado) && <Button size="xs" variant="outline" onClick={() => atualizarParticipacao(selecionado, participacao.musico.codigo,
+                              participacao.presente === true ? { presente: false } : { presente: true, statusConfirmacao: "CONFIRMADO" })}>
+                              {participacao.presente === true ? "Marcar ausente" : participacao.statusConfirmacao === "CONFIRMADO" ? "Marcar presente" : "Confirmar e marcar presente"}
+                            </Button>}
                           </HStack>
                         </Flex>
                       );
@@ -310,7 +318,7 @@ export default function AgendaPage({ usuario }: { usuario: Membro }) {
               {podeAlterar(selecionado) && (
                 <HStack>
                   <Button size="sm" onClick={() => abrirFormulario(selecionado)}>Editar</Button>
-                  <Button size="sm" variant="outline" onClick={() => excluir(selecionado)}>Excluir</Button>
+                  {selecionado.status !== "REALIZADO" && !selecionado.participacoes.some(p => p.presente != null) && <Button size="sm" variant="outline" onClick={() => excluir(selecionado)}>Excluir</Button>}
                 </HStack>
               )}
             </Stack>

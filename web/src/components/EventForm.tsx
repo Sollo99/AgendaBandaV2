@@ -1,6 +1,7 @@
 import { SyntheticEvent, useState } from "react";
 import { Box, Button, Card, Grid, HStack, Input, Stack, Text, Textarea } from "@chakra-ui/react";
 import { api } from "../api";
+import { eventoTerminou } from "../regrasEvento";
 import type { Agenda, Cidade, LocalEvento, MusicoResumo, TipoEvento } from "../types";
 
 type Props = {
@@ -54,6 +55,10 @@ export default function EventForm({ evento, locais, cidades, musicos, tiposEvent
   async function salvar(e: SyntheticEvent) {
     e.preventDefault();
     setErro("");
+    if (form.status === "REALIZADO" && !eventoTerminou(form.dataHoraFim)) {
+      setErro("Um evento só pode ser marcado como realizado após seu término.");
+      return;
+    }
     const payload = {
       ...form,
       dataHoraInicio: form.dataHoraInicio,
@@ -82,7 +87,7 @@ export default function EventForm({ evento, locais, cidades, musicos, tiposEvent
           <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap="4">
             <Box><Text mb="1">Título</Text><Input maxLength={120} value={form.titulo} onChange={(e) => update("titulo", e.target.value)} required /></Box>
             <Box><Text mb="1">Tipo</Text><select className="native-field" value={form.tipoEventoId} onChange={(e) => update("tipoEventoId", e.target.value)} required><option value="">Selecione</option>{tiposEvento.map((tipo) => <option key={tipo.codigoTipo} value={tipo.codigoTipo}>{tipo.nome.charAt(0) + tipo.nome.slice(1).toLowerCase()}</option>)}</select></Box>
-            <Box><Text mb="1">Status</Text><select className="native-field" value={form.status} onChange={(e) => update("status", e.target.value)}><option value="AGENDADO">Agendado</option><option value="CANCELADO">Cancelado</option><option value="REALIZADO">Realizado</option></select></Box>
+            <Box><Text mb="1">Status</Text><select className="native-field" value={form.status} disabled={evento?.status === "REALIZADO"} onChange={(e) => update("status", e.target.value)}><option value="AGENDADO">Agendado</option><option value="CANCELADO">Cancelado</option><option value="REALIZADO" disabled={!eventoTerminou(form.dataHoraFim)}>Realizado (após o término)</option></select></Box>
             <Box><Text mb="1">Início</Text><Input type="datetime-local" value={form.dataHoraInicio} onChange={(e) => update("dataHoraInicio", e.target.value)} required /></Box>
             <Box><Text mb="1">Fim</Text><Input type="datetime-local" value={form.dataHoraFim} onChange={(e) => update("dataHoraFim", e.target.value)} required /></Box>
             <Box><Text mb="1">Local</Text><select className="native-field" value={form.localId} onChange={(e) => update("localId", e.target.value)} required><option value="">Selecione</option>{locais.map((l) => <option key={l.codigoLocal} value={l.codigoLocal}>{l.nome}</option>)}</select></Box>

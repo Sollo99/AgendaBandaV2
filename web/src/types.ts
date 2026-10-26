@@ -1,9 +1,9 @@
 export type Membro = {
   codigo: number;
   nome: string;
-  cpf: string;
-  email: string;
-  login: string;
+  cpf: string | null;
+  email: string | null;
+  login: string | null;
   administrador: boolean;
   ativo: boolean;
   statusCadastro: "PENDENTE" | "APROVADO" | "RECUSADO";

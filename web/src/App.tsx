@@ -80,6 +80,12 @@ export default function App() {
     void pedido.catch(() => undefined);
   }
 
+  function atualizarUsuario(perfil: Membro) {
+    localStorage.setItem("usuario", JSON.stringify(perfil));
+    setUsuario(perfil);
+    if (!perfil.administrador && aba !== "agenda" && aba !== "perfil") setAba("agenda");
+  }
+
   if (carregando) return <Box p="8"><Text>Verificando sessão...</Text></Box>;
   if (erroInicial) return <Box p="8"><Text mb="4">{erroInicial}</Text><HStack><Button onClick={() => void validarSessao()}>Tentar novamente</Button><Button variant="outline" onClick={sair}>Voltar ao login</Button></HStack></Box>;
 
@@ -116,8 +122,8 @@ export default function App() {
 
       <Box maxW="1180px" mx="auto" p="6">
         {aba === "agenda" && <AgendaPage usuario={usuario} />}
-        {aba === "perfil" && <PerfilPage usuario={usuario} onAtualizar={setUsuario} />}
-        {aba === "usuarios" && usuario.administrador && <UsersPage usuario={usuario} />}
+        {aba === "perfil" && <PerfilPage usuario={usuario} onAtualizar={atualizarUsuario} />}
+        {aba === "usuarios" && usuario.administrador && <UsersPage usuario={usuario} onAtualizar={atualizarUsuario} />}
         {aba === "locais" && usuario.administrador && <LocaisPage />}
         {aba === "cidades" && usuario.administrador && <CidadesPage />}
         {aba === "tipos" && usuario.administrador && <TiposEventoPage />}
