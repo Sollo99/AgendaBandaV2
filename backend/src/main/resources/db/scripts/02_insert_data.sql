@@ -86,36 +86,36 @@ INSERT INTO tipos_evento (nome, descricao, categoria_detalhe, ativo) VALUES
 GO
 
 INSERT INTO agenda (titulo, descricao, dt_hora_in, dt_hora_fim, codigo_local, cod_membro_criador) VALUES
-(N'Ensaio 1', N'Ensaio geral da banda numero 1.', '2026-06-01T19:00:00', '2026-06-01T21:00:00', 1, 1),
-(N'Ensaio 2', N'Ensaio geral da banda numero 2.', '2026-06-02T19:00:00', '2026-06-02T21:00:00', 2, 2),
-(N'Ensaio 3', N'Ensaio geral da banda numero 3.', '2026-06-03T19:00:00', '2026-06-03T21:00:00', 3, 3),
-(N'Ensaio 4', N'Ensaio geral da banda numero 4.', '2026-06-04T19:00:00', '2026-06-04T21:00:00', 4, 4),
-(N'Ensaio 5', N'Ensaio geral da banda numero 5.', '2026-06-05T19:00:00', '2026-06-05T21:00:00', 5, 5),
-(N'Ensaio 6', N'Ensaio geral da banda numero 6.', '2026-06-06T19:00:00', '2026-06-06T21:00:00', 6, 6),
-(N'Ensaio 7', N'Ensaio geral da banda numero 7.', '2026-06-07T19:00:00', '2026-06-07T21:00:00', 7, 7),
-(N'Ensaio 8', N'Ensaio geral da banda numero 8.', '2026-06-08T19:00:00', '2026-06-08T21:00:00', 8, 8),
-(N'Ensaio 9', N'Ensaio geral da banda numero 9.', '2026-06-09T19:00:00', '2026-06-09T21:00:00', 9, 9),
-(N'Ensaio 10', N'Ensaio geral da banda numero 10.', '2026-06-10T19:00:00', '2026-06-10T21:00:00', 10, 10),
-(N'Show 1', N'Apresentacao da banda numero 1.', '2026-07-01T20:00:00', '2026-07-01T22:30:00', 1, 1),
-(N'Show 2', N'Apresentacao da banda numero 2.', '2026-07-02T20:00:00', '2026-07-02T22:30:00', 2, 2),
-(N'Show 3', N'Apresentacao da banda numero 3.', '2026-07-03T20:00:00', '2026-07-03T22:30:00', 3, 3),
-(N'Show 4', N'Apresentacao da banda numero 4.', '2026-07-04T20:00:00', '2026-07-04T22:30:00', 4, 4),
-(N'Show 5', N'Apresentacao da banda numero 5.', '2026-07-05T20:00:00', '2026-07-05T22:30:00', 5, 5),
-(N'Show 6', N'Apresentacao da banda numero 6.', '2026-07-06T20:00:00', '2026-07-06T22:30:00', 6, 6),
-(N'Show 7', N'Apresentacao da banda numero 7.', '2026-07-07T20:00:00', '2026-07-07T22:30:00', 7, 7),
-(N'Show 8', N'Apresentacao da banda numero 8.', '2026-07-08T20:00:00', '2026-07-08T22:30:00', 8, 8),
-(N'Show 9', N'Apresentacao da banda numero 9.', '2026-07-09T20:00:00', '2026-07-09T22:30:00', 9, 9),
-(N'Show 10', N'Apresentacao da banda numero 10.', '2026-07-10T20:00:00', '2026-07-10T22:30:00', 10, 10),
-(N'Reuniao 1', N'Reuniao de planejamento numero 1.', '2026-08-01T18:30:00', '2026-08-01T19:30:00', 1, 1),
-(N'Reuniao 2', N'Reuniao de planejamento numero 2.', '2026-08-02T18:30:00', '2026-08-02T19:30:00', 2, 2),
-(N'Reuniao 3', N'Reuniao de planejamento numero 3.', '2026-08-03T18:30:00', '2026-08-03T19:30:00', 3, 3),
-(N'Reuniao 4', N'Reuniao de planejamento numero 4.', '2026-08-04T18:30:00', '2026-08-04T19:30:00', 4, 4),
-(N'Reuniao 5', N'Reuniao de planejamento numero 5.', '2026-08-05T18:30:00', '2026-08-05T19:30:00', 5, 5),
-(N'Reuniao 6', N'Reuniao de planejamento numero 6.', '2026-08-06T18:30:00', '2026-08-06T19:30:00', 6, 6),
-(N'Reuniao 7', N'Reuniao de planejamento numero 7.', '2026-08-07T18:30:00', '2026-08-07T19:30:00', 7, 7),
-(N'Reuniao 8', N'Reuniao de planejamento numero 8.', '2026-08-08T18:30:00', '2026-08-08T19:30:00', 8, 8),
-(N'Reuniao 9', N'Reuniao de planejamento numero 9.', '2026-08-09T18:30:00', '2026-08-09T19:30:00', 9, 9),
-(N'Reuniao 10', N'Reuniao de planejamento numero 10.', '2026-08-10T18:30:00', '2026-08-10T19:30:00', 10, 10);
+(N'Ensaio 1', N'Ensaio geral da banda numero 1.', '2026-10-01T19:00:00', '2026-10-01T21:00:00', 1, 1),
+(N'Ensaio 2', N'Ensaio geral da banda numero 2.', '2026-10-02T19:00:00', '2026-10-02T21:00:00', 2, 2),
+(N'Ensaio 3', N'Ensaio geral da banda numero 3.', '2026-10-03T19:00:00', '2026-10-03T21:00:00', 3, 3),
+(N'Ensaio 4', N'Ensaio geral da banda numero 4.', '2026-10-04T19:00:00', '2026-10-04T21:00:00', 4, 4),
+(N'Ensaio 5', N'Ensaio geral da banda numero 5.', '2026-10-05T19:00:00', '2026-10-05T21:00:00', 5, 5),
+(N'Ensaio 6', N'Ensaio geral da banda numero 6.', '2026-10-06T19:00:00', '2026-10-06T21:00:00', 6, 6),
+(N'Ensaio 7', N'Ensaio geral da banda numero 7.', '2026-10-07T19:00:00', '2026-10-07T21:00:00', 7, 7),
+(N'Ensaio 8', N'Ensaio geral da banda numero 8.', '2026-10-08T19:00:00', '2026-10-08T21:00:00', 8, 8),
+(N'Ensaio 9', N'Ensaio geral da banda numero 9.', '2026-10-09T19:00:00', '2026-10-09T21:00:00', 9, 9),
+(N'Ensaio 10', N'Ensaio geral da banda numero 10.', '2026-10-10T19:00:00', '2026-10-10T21:00:00', 10, 10),
+(N'Show 1', N'Apresentacao da banda numero 1.', '2026-11-01T20:00:00', '2026-11-01T22:30:00', 1, 1),
+(N'Show 2', N'Apresentacao da banda numero 2.', '2026-11-02T20:00:00', '2026-11-02T22:30:00', 2, 2),
+(N'Show 3', N'Apresentacao da banda numero 3.', '2026-11-03T20:00:00', '2026-11-03T22:30:00', 3, 3),
+(N'Show 4', N'Apresentacao da banda numero 4.', '2026-11-04T20:00:00', '2026-11-04T22:30:00', 4, 4),
+(N'Show 5', N'Apresentacao da banda numero 5.', '2026-11-05T20:00:00', '2026-11-05T22:30:00', 5, 5),
+(N'Show 6', N'Apresentacao da banda numero 6.', '2026-11-06T20:00:00', '2026-11-06T22:30:00', 6, 6),
+(N'Show 7', N'Apresentacao da banda numero 7.', '2026-11-07T20:00:00', '2026-11-07T22:30:00', 7, 7),
+(N'Show 8', N'Apresentacao da banda numero 8.', '2026-11-08T20:00:00', '2026-11-08T22:30:00', 8, 8),
+(N'Show 9', N'Apresentacao da banda numero 9.', '2026-11-09T20:00:00', '2026-11-09T22:30:00', 9, 9),
+(N'Show 10', N'Apresentacao da banda numero 10.', '2026-11-10T20:00:00', '2026-11-10T22:30:00', 10, 10),
+(N'Reuniao 1', N'Reuniao de planejamento numero 1.', '2026-12-01T18:30:00', '2026-12-01T19:30:00', 1, 1),
+(N'Reuniao 2', N'Reuniao de planejamento numero 2.', '2026-12-02T18:30:00', '2026-12-02T19:30:00', 2, 2),
+(N'Reuniao 3', N'Reuniao de planejamento numero 3.', '2026-12-03T18:30:00', '2026-12-03T19:30:00', 3, 3),
+(N'Reuniao 4', N'Reuniao de planejamento numero 4.', '2026-12-04T18:30:00', '2026-12-04T19:30:00', 4, 4),
+(N'Reuniao 5', N'Reuniao de planejamento numero 5.', '2026-12-05T18:30:00', '2026-12-05T19:30:00', 5, 5),
+(N'Reuniao 6', N'Reuniao de planejamento numero 6.', '2026-12-06T18:30:00', '2026-12-06T19:30:00', 6, 6),
+(N'Reuniao 7', N'Reuniao de planejamento numero 7.', '2026-12-07T18:30:00', '2026-12-07T19:30:00', 7, 7),
+(N'Reuniao 8', N'Reuniao de planejamento numero 8.', '2026-12-08T18:30:00', '2026-12-08T19:30:00', 8, 8),
+(N'Reuniao 9', N'Reuniao de planejamento numero 9.', '2026-12-09T18:30:00', '2026-12-09T19:30:00', 9, 9),
+(N'Reuniao 10', N'Reuniao de planejamento numero 10.', '2026-12-10T18:30:00', '2026-12-10T19:30:00', 10, 10);
 GO
 
 INSERT INTO ensaios (codigo_agenda, repertorio, observacao) VALUES
@@ -159,16 +159,18 @@ GO
 
 
 
+-- Ensaios de outubro realizados; shows de novembro e reunioes de dezembro futuros.
+UPDATE agenda SET status = N'REALIZADO' WHERE codigo_agenda BETWEEN 1 AND 10;
 UPDATE agenda SET codigo_tipo = 2 WHERE codigo_agenda BETWEEN 11 AND 20;
 UPDATE agenda SET codigo_tipo = 3 WHERE codigo_agenda BETWEEN 21 AND 30;
 GO
 
 INSERT INTO participacao_evento (codigo_agenda, cod_musico, status_confirmacao, presente, data_resposta) VALUES
-(1, 1, N'CONFIRMADO', 1, SYSDATETIME()), (2, 2, N'CONFIRMADO', 1, SYSDATETIME()),
-(3, 3, N'CONFIRMADO', 1, SYSDATETIME()), (4, 4, N'CONFIRMADO', 1, SYSDATETIME()),
-(5, 5, N'CONFIRMADO', 1, SYSDATETIME()), (6, 6, N'CONFIRMADO', 1, SYSDATETIME()),
-(7, 7, N'CONFIRMADO', 1, SYSDATETIME()), (8, 8, N'CONFIRMADO', 1, SYSDATETIME()),
-(9, 9, N'CONFIRMADO', 1, SYSDATETIME()), (10, 10, N'CONFIRMADO', 1, SYSDATETIME()),
+(1, 1, N'CONFIRMADO', 1, '2026-09-30T12:00:00'), (2, 2, N'CONFIRMADO', 1, '2026-09-30T12:00:00'),
+(3, 3, N'CONFIRMADO', 1, '2026-09-30T12:00:00'), (4, 4, N'CONFIRMADO', 1, '2026-09-30T12:00:00'),
+(5, 5, N'CONFIRMADO', 1, '2026-09-30T12:00:00'), (6, 6, N'CONFIRMADO', 1, '2026-09-30T12:00:00'),
+(7, 7, N'CONFIRMADO', 1, '2026-09-30T12:00:00'), (8, 8, N'CONFIRMADO', 1, '2026-09-30T12:00:00'),
+(9, 9, N'CONFIRMADO', 1, '2026-09-30T12:00:00'), (10, 10, N'CONFIRMADO', 1, '2026-09-30T12:00:00'),
 (11, 1, N'PENDENTE', NULL, NULL), (12, 2, N'PENDENTE', NULL, NULL),
 (13, 3, N'PENDENTE', NULL, NULL), (14, 4, N'PENDENTE', NULL, NULL),
 (15, 5, N'PENDENTE', NULL, NULL), (16, 6, N'PENDENTE', NULL, NULL),
