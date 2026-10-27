@@ -1,6 +1,7 @@
 import { SyntheticEvent, useEffect, useState } from "react";
 import { Box, Button, Card, Heading, Input, Stack, Text } from "@chakra-ui/react";
 import { api, ApiError } from "../api";
+import { iniciarSessao } from "../sessao";
 import type { Membro } from "../types";
 
 type Modo = "login" | "cadastro" | "recuperar" | "redefinir";
@@ -12,8 +13,6 @@ export default function LoginPage({ onLogin, mensagemInicial = "" }: { onLogin: 
   const [cadastro, setCadastro] = useState({ nome: "", cpf: "", email: "", login: "", senha: "", instrumento: "", biografia: "" });
   const [identificador, setIdentificador] = useState("");
   const [codigoInformado, setCodigoInformado] = useState("");
-  const [codigoRecuperacao, setCodigoRecuperacao] = useState("");
-  const [codigoSolicitacao, setCodigoSolicitacao] = useState<number | null>(null);
   const [novaSenha, setNovaSenha] = useState("");
   const [confirmacaoSenha, setConfirmacaoSenha] = useState("");
   const [erro, setErro] = useState("");
@@ -33,8 +32,7 @@ export default function LoginPage({ onLogin, mensagemInicial = "" }: { onLogin: 
     setCarregando(true);
     try {
       const resposta = await api.login(login, senha);
-      localStorage.setItem("token", resposta.token);
-      localStorage.setItem("usuario", JSON.stringify(resposta.usuario));
+      iniciarSessao();
       onLogin(resposta.usuario);
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Falha no login.");
@@ -65,13 +63,8 @@ export default function LoginPage({ onLogin, mensagemInicial = "" }: { onLogin: 
     setErro("");
     setCarregando(true);
     try {
-      const resposta = await api.recuperarSenha(identificador, codigoInformado.trim() || undefined);
+      const resposta = await api.recuperarSenha(identificador);
       setMensagem(resposta.mensagem);
-      setCodigoRecuperacao(resposta.codigoRecuperacao ?? "");
-      if (resposta.podeRedefinir && resposta.codigoSolicitacao) {
-        setCodigoSolicitacao(resposta.codigoSolicitacao);
-        setModo("redefinir");
-      }
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Não foi possível solicitar a redefinição.");
     } finally {
@@ -88,11 +81,10 @@ export default function LoginPage({ onLogin, mensagemInicial = "" }: { onLogin: 
     }
     setCarregando(true);
     try {
-      if (!codigoSolicitacao) throw new Error("Solicitação de redefinição inválida.");
-      const resposta = await api.redefinirSenha(codigoSolicitacao, novaSenha, codigoInformado.trim() || undefined);
-      setCodigoSolicitacao(null);
+      const partes = /^([1-9][0-9]*)\.([A-Za-z0-9_-]{43})$/.exec(codigoInformado.trim());
+      if (!partes || !Number.isSafeInteger(Number(partes[1]))) throw new Error("Informe o codigo completo entregue pelo administrador.");
+      const resposta = await api.redefinirSenha(Number(partes[1]), novaSenha, partes[2]);
       setCodigoInformado("");
-      setCodigoRecuperacao("");
       setNovaSenha("");
       setConfirmacaoSenha("");
       setMensagem(resposta.mensagem);
@@ -100,9 +92,7 @@ export default function LoginPage({ onLogin, mensagemInicial = "" }: { onLogin: 
       setModo("login");
     } catch (err) {
       if (err instanceof ApiError && err.codigo === "RECUPERACAO_EXPIRADA") {
-        setCodigoSolicitacao(null);
         setCodigoInformado("");
-        setCodigoRecuperacao("");
         setNovaSenha("");
         setConfirmacaoSenha("");
         setModo("recuperar");
@@ -120,7 +110,7 @@ export default function LoginPage({ onLogin, mensagemInicial = "" }: { onLogin: 
           <Stack gap="5">
             <Box>
               <Heading>Agenda da Banda</Heading>
-              <Text color="fg.muted">{modo === "login" ? "Acesse com login e senha para visualizar a agenda." : modo === "cadastro" ? "Crie sua conta de músico." : modo === "recuperar" ? "Informe seu login ou e-mail para solicitar a redefinição ou consultar sua aprovação." : "Defina uma nova senha para sua conta."}</Text>
+              <Text color="fg.muted">{modo === "login" ? "Acesse com login e senha para visualizar a agenda." : modo === "cadastro" ? "Crie sua conta de músico." : modo === "recuperar" ? "Solicite a redefinicao e contate um administrador para confirmar sua identidade." : "Defina uma nova senha para sua conta."}</Text>
             </Box>
             {mensagem && <Text color="green.600">{mensagem}</Text>}
             {erro && <Text color="red.500">{erro}</Text>}
@@ -147,13 +137,14 @@ export default function LoginPage({ onLogin, mensagemInicial = "" }: { onLogin: 
 
             {modo === "recuperar" && <Stack gap="4" as="form" onSubmit={solicitarRedefinicao}>
               <Box><Text mb="2">Login ou e-mail</Text><Input maxLength={120} value={identificador} onChange={(e) => setIdentificador(e.target.value)} required /></Box>
-              <Box><Text mb="2">Código de recuperação (se estiver em outro navegador)</Text><Input value={codigoInformado} minLength={32} maxLength={128} autoComplete="off" onChange={(e) => setCodigoInformado(e.target.value)} /><Text fontSize="sm" color="fg.muted">Deixe vazio para usar a solicitação deste navegador.</Text></Box>
-              {codigoRecuperacao && <Box><Text mb="2">Guarde seu código de recuperação</Text><Input value={codigoRecuperacao} readOnly autoComplete="off" /><Text fontSize="sm" color="fg.muted">Use este código em outro navegador. Se já havia um pedido aberto, o código original continua necessário. Não compartilhe.</Text></Box>}
+              <Text fontSize="sm" color="fg.muted">Um administrador deve confirmar sua identidade por contato conhecido e entregar o codigo. Abrir um pedido nao autoriza a troca da senha.</Text>
               <Button type="submit" loading={carregando}>Solicitar redefinição</Button>
+              <Button type="button" variant="outline" onClick={() => trocarModo("redefinir")}>Ja tenho o codigo do administrador</Button>
               <Button type="button" variant="ghost" onClick={() => trocarModo("login")}>Voltar ao login</Button>
             </Stack>}
 
             {modo === "redefinir" && <Stack gap="4" as="form" onSubmit={redefinirSenha}>
+              <Box><Text mb="2">Codigo entregue pelo administrador</Text><Input value={codigoInformado} maxLength={64} autoComplete="off" onChange={(e) => setCodigoInformado(e.target.value)} required /></Box>
               <Box><Text mb="2">Nova senha</Text><Input maxLength={72} type="password" minLength={6} value={novaSenha} onChange={(e) => setNovaSenha(e.target.value)} required /></Box>
               <Box><Text mb="2">Confirmar nova senha</Text><Input maxLength={72} type="password" minLength={6} value={confirmacaoSenha} onChange={(e) => setConfirmacaoSenha(e.target.value)} required /></Box>
               <Button type="submit" loading={carregando}>Redefinir senha</Button>

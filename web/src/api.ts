@@ -1,5 +1,5 @@
-import type { Agenda, Cidade, LocalEvento, LoginResponse, Membro, MusicoResumo, ParticipacaoEvento, SolicitacaoSenha, TipoEvento } from "./types";
-import { tratarNaoAutenticado } from "./sessao";
+import type { Agenda, Cidade, LocalEvento, LoginResponse, Membro, MusicoResumo, ParticipacaoEvento, SolicitacaoSenha, TipoEvento, Relatorio, HistoricoRegistro } from "./types";
+import { geracaoSessao, tratarNaoAutenticado } from "./sessao";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "/api";
 
@@ -7,31 +7,61 @@ export class ApiError extends Error {
   constructor(message: string, public status: number, public codigo?: string) { super(message); }
 }
 
-async function request<T>(path: string, options: RequestInit & { publica?: boolean } = {}): Promise<T> {
+let csrf: { token: string; geracao: number } | null = null;
+let buscandoCsrf: Promise<string> | null = null;
+
+async function obterCsrf(): Promise<string> {
+  const geracao = geracaoSessao();
+  if (csrf?.geracao === geracao) return csrf.token;
+  if (!buscandoCsrf) {
+    buscandoCsrf = fetch(`${API_URL}/auth/csrf`, { credentials: "include", cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new ApiError("Nao foi possivel preparar a solicitacao.", response.status);
+        const data = await response.json() as { token: string };
+        csrf = { token: data.token, geracao };
+        return data.token;
+      }).finally(() => { buscandoCsrf = null; });
+  }
+  const token = await buscandoCsrf;
+  return geracaoSessao() === geracao ? token : obterCsrf();
+}
+
+async function request<T>(path: string, options: RequestInit & { publica?: boolean } = {}, repetirCsrf = true): Promise<T> {
   const { publica = false, ...init } = options;
-  const token = publica ? null : localStorage.getItem("token");
+  const geracao = geracaoSessao();
+  const mutacao = !["GET", "HEAD", "OPTIONS"].includes((init.method ?? "GET").toUpperCase());
+  const csrfToken = mutacao ? await obterCsrf() : null;
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
+    credentials: "include",
+    cache: "no-store",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
       ...(options.headers ?? {})
     }
   });
 
   if (!response.ok) {
     const data = await response.json().catch(() => ({}));
-    if (response.status === 401 && token) tratarNaoAutenticado(token);
+    if (response.status === 403 && data.codigo === "CSRF_INVALIDO" && repetirCsrf && geracao === geracaoSessao()) {
+      csrf = null;
+      return request<T>(path, options, false);
+    }
+    if (response.status === 401 && !publica) {
+      csrf = null;
+      tratarNaoAutenticado(geracao);
+    }
     throw new ApiError(data.erro ?? "Erro ao comunicar com o servidor.", response.status, data.codigo);
   }
-
-  if (response.status === 204) {
-    return undefined as T;
-  }
+  if (path === "/auth/login" || path === "/auth/logout") csrf = null;
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
 export const api = {
+  consultarRelatorios: (inicio: string, fim: string) => request<Relatorio>(`/relatorios?${new URLSearchParams({ inicio, fim })}`),
+  consultarHistoricos: (inicio: string, fim: string) => request<HistoricoRegistro[]>(`/relatorios/historicos?${new URLSearchParams({ inicio, fim })}`),
   login: (login: string, senha: string) => request<LoginResponse>("/auth/login", {
     publica: true,
     method: "POST",
@@ -41,7 +71,7 @@ export const api = {
   recuperarSenha: (identificador: string, chaveSolicitacao?: string) => request<{ podeRedefinir: boolean; codigoSolicitacao?: number; mensagem: string; codigoRecuperacao?: string }>("/auth/recuperar-senha", { publica: true, method: "POST", credentials: "include", body: JSON.stringify({ identificador, chaveSolicitacao }) }),
   redefinirSenha: (codigoSolicitacao: number, novaSenha: string, chaveSolicitacao?: string) => request<{ mensagem: string }>("/auth/redefinir-senha", { publica: true, method: "POST", credentials: "include", body: JSON.stringify({ codigoSolicitacao, chaveSolicitacao, novaSenha }) }),
   listarSolicitacoesSenha: () => request<SolicitacaoSenha[]>("/redefinicoes-senha/abertas"),
-  decidirSolicitacaoSenha: (id: number, aprovada: boolean) => request<{ mensagem: string }>(`/redefinicoes-senha/${id}`, { method: "PATCH", body: JSON.stringify({ aprovada }) }),
+  decidirSolicitacaoSenha: (id: number, aprovada: boolean) => request<{ mensagem: string; codigoRecuperacao?: string; expiraEm?: string }>(`/redefinicoes-senha/${id}`, { method: "PATCH", body: JSON.stringify({ aprovada, identidadeVerificada: aprovada }) }),
   cancelarSolicitacaoSenha: (id: number) => request<{ mensagem: string }>(`/redefinicoes-senha/${id}/cancelar`, { method: "POST" }),
   logout: () => request<{ mensagem: string }>("/auth/logout", { method: "POST" }),
   listarAgenda: () => request<Agenda[]>("/agenda"),

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Box, Button, Card, HStack, Stack, Text } from "@chakra-ui/react";
+import { Box, Button, Card, HStack, Input, Stack, Text } from "@chakra-ui/react";
 import { api } from "../api";
 import type { SolicitacaoSenha } from "../types";
 
@@ -9,6 +9,7 @@ export default function SolicitacoesSenhaAdmin() {
   const [aviso, setAviso] = useState("");
   const [erro, setErro] = useState("");
   const [processando, setProcessando] = useState<number | null>(null);
+  const [credencial, setCredencial] = useState<{ codigo: string; expiraEm: string; membro: string } | null>(null);
   const iniciou = useRef(false);
   const codigosPendentes = useRef<number[]>([]);
 
@@ -30,11 +31,18 @@ export default function SolicitacoesSenhaAdmin() {
   }, []);
 
   async function decidir(id: number, acao: "aprovar" | "recusar" | "cancelar") {
+    if (acao === "aprovar" && !window.confirm("Voce confirmou a identidade do membro presencialmente ou por contato previamente conhecido? Entregue o codigo somente a essa pessoa. Nao basta reconhecer o login ou e-mail informado no pedido.")) return;
     setProcessando(id);
     setErro("");
     try {
       if (acao === "cancelar") await api.cancelarSolicitacaoSenha(id);
-      else await api.decidirSolicitacaoSenha(id, acao === "aprovar");
+      else {
+        const resultado = await api.decidirSolicitacaoSenha(id, acao === "aprovar");
+        if (resultado.codigoRecuperacao && resultado.expiraEm) {
+          setCredencial({ codigo: resultado.codigoRecuperacao, expiraEm: resultado.expiraEm,
+            membro: solicitacoes.find((item) => item.codigoSolicitacao === id)?.nomeMembro ?? "" });
+        }
+      }
       await carregar();
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Não foi possível atualizar a solicitação.");
@@ -44,6 +52,13 @@ export default function SolicitacoesSenhaAdmin() {
   }
 
   return <>
+    {credencial && <Box position="fixed" inset="0" zIndex="tooltip" bg="blackAlpha.700" display="grid" placeItems="center" p="4"><Card.Root maxW="620px" w="100%"><Card.Body><Stack gap="4">
+      <Text fontWeight="bold">Codigo de redefinicao para {credencial.membro}</Text>
+      <Text>Entregue por um canal conhecido somente ao membro cuja identidade foi verificada. Este codigo aparece uma unica vez. Se for perdido, cancele a solicitacao e abra outra.</Text>
+      <Input value={credencial.codigo} readOnly autoComplete="off" />
+      <Text>Expira em {new Date(credencial.expiraEm).toLocaleString("pt-BR")}</Text>
+      <Button onClick={() => setCredencial(null)}>Concluir entrega e fechar</Button>
+    </Stack></Card.Body></Card.Root></Box>}
     <Box maxW="1180px" mx="auto" px="6" pt="3"><Button size="sm" variant="outline" onClick={() => { setAviso(""); setAberto(true); }}>Recuperações de senha ({solicitacoes.length})</Button></Box>
     {aviso && <Box position="fixed" right="6" bottom="6" zIndex="toast" bg="bg.panel" borderWidth="1px" borderRadius="lg" p="4" boxShadow="lg"><Stack><Text>{aviso}</Text><HStack><Button size="sm" onClick={() => { setAviso(""); setAberto(true); }}>Ver solicitações</Button><Button size="sm" variant="ghost" onClick={() => setAviso("")}>Fechar</Button></HStack></Stack></Box>}
     {aberto && <Box position="fixed" inset="0" bg="blackAlpha.600" zIndex="modal" display="grid" placeItems="center" p="4">

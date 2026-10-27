@@ -16,3 +16,6 @@ body {
   background: var(--chakra-colors-bg);
   color: var(--chakra-colors-fg);
 }
+.relatorio-tabela { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.relatorio-tabela th, .relatorio-tabela td { padding: 0.65rem; border-bottom: 1px solid var(--chakra-colors-border); text-align: left; white-space: nowrap; }
+.historico-json { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.8rem; margin-top: 0.5rem; }

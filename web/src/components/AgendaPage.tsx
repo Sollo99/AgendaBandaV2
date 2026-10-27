@@ -292,6 +292,7 @@ export default function AgendaPage({ usuario }: { usuario: Membro }) {
                 {selecionado.participacoes.length > 0 && (
                   <Stack gap="1">
                     <Text fontWeight="bold">Participações</Text>
+                    <Text color="fg.muted">{selecionado.totalConfirmados} confirmados de {selecionado.totalParticipantes} participantes</Text>
                     {selecionado.participacoes.map((participacao) => {
                       const propria = participacao.musico.codigo === usuario.codigo;
                       const presenca = participacao.presente === true ? " • presente" : participacao.presente === false ? " • ausente" : "";

@@ -71,10 +71,11 @@ export type Agenda = {
   cidadeShow?: Cidade;
   musicos: MusicoResumo[];
   participacoes: ParticipacaoEvento[];
+  totalParticipantes: number;
+  totalConfirmados: number;
 };
 
 export type LoginResponse = {
-  token: string;
   usuario: Membro;
 };
 
@@ -87,4 +88,24 @@ export type SolicitacaoSenha = {
   solicitadoEm: string;
   status: "PENDENTE" | "APROVADA";
   expiraEm: string;
+};
+
+export type ResumoTipo = {
+  codigoTipo: number; tipo: string; total: number; agendados: number;
+  realizados: number; cancelados: number; minutosProgramados: number;
+};
+export type PresencaMusico = {
+  codigoMusico: number; nome: string; instrumento: string; eventos: number;
+  realizados: number; presencas: number; ausencias: number; semRegistro: number; taxaPresenca: number | null;
+};
+export type OcupacaoLocal = {
+  codigoLocal: number; nome: string; cidade: string; uf: string; eventos: number;
+  agendados: number; realizados: number; cancelados: number; minutosProgramados: number;
+};
+export type Relatorio = {
+  inicio: string; fim: string; resumo: ResumoTipo[]; presencas: PresencaMusico[]; locais: OcupacaoLocal[];
+};
+export type HistoricoRegistro = {
+  codigo: number; entidade: string; registro: string; operacao: string; dataHora: string;
+  codigoResponsavel: number | null; responsavel: string | null; dadosAnteriores: string | null; dadosNovos: string | null;
 };
