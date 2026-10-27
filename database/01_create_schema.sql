@@ -7,6 +7,18 @@ GO
 USE AgendaBanda;
 GO
 
+-- Recriacao completa de banco novo: dependencias antes das tabelas.
+DROP PROCEDURE IF EXISTS dbo.usp_criar_evento;
+DROP PROCEDURE IF EXISTS dbo.usp_atualizar_evento;
+DROP PROCEDURE IF EXISTS dbo.usp_atualizar_participacao;
+DROP VIEW IF EXISTS dbo.vw_agenda_detalhada;
+DROP VIEW IF EXISTS dbo.vw_presenca_musicos;
+DROP VIEW IF EXISTS dbo.vw_ocupacao_locais;
+DROP FUNCTION IF EXISTS dbo.fn_taxa_presenca_musico;
+DROP FUNCTION IF EXISTS dbo.fn_conflitos_agendamento;
+DROP FUNCTION IF EXISTS dbo.fn_resumo_periodo;
+DROP TABLE IF EXISTS historico_eventos;
+DROP TABLE IF EXISTS historico_operacoes;
 DROP TABLE IF EXISTS sessoes;
 DROP TABLE IF EXISTS redefinicoes_senha;
 DROP TABLE IF EXISTS participacao_evento;
@@ -207,4 +219,38 @@ GO
 
 CREATE INDEX ix_agenda_periodo ON agenda(dt_hora_in, dt_hora_fim) INCLUDE (codigo_local, status);
 CREATE INDEX ix_participacao_musico ON participacao_evento(cod_musico, codigo_agenda);
+GO
+
+CREATE TABLE historico_eventos (
+    codigo_historico BIGINT IDENTITY(1,1) PRIMARY KEY,
+    -- Identificador original sem FK: a exclusao do evento nao apaga a auditoria.
+    codigo_agenda INT NOT NULL,
+    membro_responsavel INT NULL,
+    tipo_operacao NVARCHAR(20) NOT NULL,
+    data_hora DATETIME2 NOT NULL,
+    dados_anteriores NVARCHAR(MAX) NULL,
+    dados_novos NVARCHAR(MAX) NULL,
+    CONSTRAINT ck_historico_eventos_operacao CHECK (tipo_operacao IN (N'CRIACAO', N'ALTERACAO', N'REAGENDAMENTO', N'CANCELAMENTO', N'EXCLUSAO')),
+    CONSTRAINT fk_historico_eventos_responsavel FOREIGN KEY (membro_responsavel) REFERENCES membros(codigo)
+);
+GO
+
+CREATE TABLE historico_operacoes (
+    codigo_operacao BIGINT IDENTITY(1,1) PRIMARY KEY,
+    membro_responsavel INT NULL,
+    entidade_afetada NVARCHAR(50) NOT NULL,
+    -- Texto permite a chave composta agenda:musico.
+    codigo_registro_afetado NVARCHAR(100) NOT NULL,
+    tipo_operacao NVARCHAR(10) NOT NULL,
+    data_hora DATETIME2 NOT NULL,
+    dados_anteriores NVARCHAR(MAX) NULL,
+    dados_novos NVARCHAR(MAX) NULL,
+    CONSTRAINT ck_historico_operacoes_operacao CHECK (tipo_operacao IN (N'INSERT', N'UPDATE', N'DELETE')),
+    CONSTRAINT fk_historico_operacoes_responsavel FOREIGN KEY (membro_responsavel) REFERENCES membros(codigo)
+);
+GO
+
+CREATE INDEX ix_historico_eventos_data ON historico_eventos(data_hora DESC, codigo_historico DESC);
+CREATE INDEX ix_historico_eventos_agenda ON historico_eventos(codigo_agenda, data_hora);
+CREATE INDEX ix_historico_operacoes_data ON historico_operacoes(data_hora DESC, codigo_operacao DESC);
 GO
