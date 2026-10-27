@@ -29,11 +29,12 @@ public class MembroService {
     private final CicloRecuperacaoService cicloRecuperacao;
     private final TokenService tokenService;
     private final Clock clock;
+    private final AuditoriaContexto auditoria;
 
     public MembroService(MembroRepository membroRepository, MusicoRepository musicoRepository, ProdutorRepository produtorRepository,
                          BCryptPasswordEncoder passwordEncoder, MapperService mapperService,
                          ParticipacaoEventoRepository participacaoRepository, CicloRecuperacaoService cicloRecuperacao,
-                         TokenService tokenService, Clock clock) {
+                         TokenService tokenService, Clock clock, AuditoriaContexto auditoria) {
         this.membroRepository = membroRepository;
         this.musicoRepository = musicoRepository;
         this.produtorRepository = produtorRepository;
@@ -43,6 +44,7 @@ public class MembroService {
         this.cicloRecuperacao = cicloRecuperacao;
         this.tokenService = tokenService;
         this.clock = clock;
+        this.auditoria = auditoria;
     }
 
     @Transactional(readOnly = true)
@@ -63,6 +65,7 @@ public class MembroService {
 
     @Transactional
     public MembroDto criar(MembroRequest request) {
+        auditoria.prepararDoRequest();
         if (request.senha() == null || request.senha().isBlank()) throw new IllegalArgumentException("Senha é obrigatória no cadastro.");
 
         var membro = new Membro();
@@ -77,6 +80,7 @@ public class MembroService {
 
     @Transactional
     public MembroDto atualizar(Integer id, MembroRequest request) {
+        auditoria.prepararDoRequest();
         var administradores = membroRepository.bloquearAdministradoresAtivos();
         var membro = buscarParaAtualizar(id);
         exigirIdentificadoresReservados(membro);
@@ -98,6 +102,7 @@ public class MembroService {
 
     @Transactional
     public MembroDto alterarStatus(Integer id, boolean ativo) {
+        auditoria.prepararDoRequest();
         var administradores = membroRepository.bloquearAdministradoresAtivos();
         var membro = buscarParaAtualizar(id);
         if (ativo && !"APROVADO".equals(membro.getStatusCadastro())) {
@@ -110,6 +115,7 @@ public class MembroService {
 
     @Transactional
     public void criarCadastro(CadastroRequest request) {
+        auditoria.prepararDoRequest();
         String hashSenha = passwordEncoder.encode(request.senha());
         // Consulta os três campos mesmo se um deles já existir, sem indicar qual colidiu.
         boolean duplicado = membroRepository.findByLogin(request.login().trim()).isPresent()
@@ -137,6 +143,7 @@ public class MembroService {
 
     @Transactional
     public MembroDto decidirCadastro(Integer id, boolean aprovada, Integer codigoAdministrador) {
+        auditoria.prepararDoRequest();
         if (membroRepository.bloquearAdministradoresAtivos().stream().noneMatch(m -> m.getCodigo().equals(codigoAdministrador))) {
             throw new SecurityException("Apenas administradores ativos podem analisar cadastros.");
         }
@@ -155,6 +162,7 @@ public class MembroService {
 
     @Transactional
     public MembroDto liberarIdentificadores(Integer id, Integer codigoAdministrador) {
+        auditoria.prepararDoRequest();
         if (membroRepository.bloquearAdministradoresAtivos().stream().noneMatch(m -> m.getCodigo().equals(codigoAdministrador))) {
             throw new SecurityException("Apenas administradores ativos podem liberar identificadores.");
         }
@@ -186,6 +194,7 @@ public class MembroService {
 
     @Transactional
     public MembroDto atualizarProprio(Integer codigoMembro, PerfilRequest request) {
+        auditoria.prepararDoRequest();
         var membro = buscarParaAtualizar(codigoMembro);
         validarUnicidade(request.cpf(), request.email(), request.login(), codigoMembro);
         membro.setNome(request.nome().trim());
@@ -209,6 +218,7 @@ public class MembroService {
 
     @Transactional
     public void redefinirSenha(Membro membro, String novaSenha) {
+        auditoria.prepararDoRequest();
         buscarParaAtualizar(membro.getCodigo());
         aplicarNovaSenha(membro, novaSenha);
         membroRepository.save(membro);

@@ -1,5 +1,9 @@
 server:
   port: ${SERVER_PORT:8080}
+  forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:NONE}
+  tomcat:
+    remoteip:
+      internal-proxies: '${PROXY_IPS_REGEX:127[.]0[.]0[.]1|::1|0:0:0:0:0:0:0:1}'
 
 spring:
   config:
@@ -19,15 +23,18 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.SQLServerDialect
         format_sql: true
+        # Mantem a conexao ate a limpeza Spring/JPA, inclusive o contexto de auditoria.
+        connection.handling_mode: DELAYED_ACQUISITION_AND_HOLD
   jackson:
     time-zone: America/Sao_Paulo
 app:
   auth:
+    cookie:
+      secure: ${AUTH_COOKIE_SECURE:false}
     sessao:
       varredura-ms: ${AUTH_SESSAO_VARREDURA_MS:60000}
     login:
       limite: ${AUTH_LOGIN_LIMITE:20}
-      limite-global: ${AUTH_LOGIN_LIMITE_GLOBAL:200}
       janela-minutos: ${AUTH_LOGIN_JANELA_MINUTOS:15}
     cadastro:
       limite: ${AUTH_CADASTRO_LIMITE:5}
@@ -40,5 +47,10 @@ app:
       pendente-horas: ${AUTH_RECUPERACAO_PENDENTE_HORAS:24}
       aprovada-horas: ${AUTH_RECUPERACAO_APROVADA_HORAS:2}
       varredura-ms: ${AUTH_RECUPERACAO_VARREDURA_MS:60000}
+  auditoria:
+    retencao:
+      eventos-dias: ${AUDITORIA_EVENTOS_DIAS:365}
+      operacoes-dias: ${AUDITORIA_OPERACOES_DIAS:180}
+      varredura-ms: ${AUDITORIA_VARREDURA_MS:3600000}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}

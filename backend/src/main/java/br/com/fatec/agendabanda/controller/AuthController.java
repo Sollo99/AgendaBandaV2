@@ -1,45 +1,48 @@
 package br.com.fatec.agendabanda.controller;
 
 import br.com.fatec.agendabanda.dto.AuthDtos.LoginRequest;
-import br.com.fatec.agendabanda.dto.AuthDtos.LoginResponse;
+import br.com.fatec.agendabanda.dto.AuthDtos.SessaoResponse;
 import br.com.fatec.agendabanda.dto.AuthDtos.RecuperarSenhaRequest;
 import br.com.fatec.agendabanda.dto.AuthDtos.RecuperarSenhaResponse;
 import br.com.fatec.agendabanda.dto.AuthDtos.RedefinirSenhaRequest;
 import br.com.fatec.agendabanda.dto.CadastroRequest;
 import br.com.fatec.agendabanda.security.TokenService;
+import br.com.fatec.agendabanda.security.SegurancaHttp;
 import br.com.fatec.agendabanda.service.AuthService;
 import br.com.fatec.agendabanda.service.CadastroPublicoService;
-import br.com.fatec.agendabanda.exception.RecuperacaoExpiradaException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
-import java.security.SecureRandom;
-import java.time.Duration;
-import java.util.Base64;
 
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
-    private static final String COOKIE_RECUPERACAO = "agendabanda_recuperacao";
+    private final SegurancaHttp seguranca;
     private final AuthService authService;
     private final TokenService tokenService;
     private final CadastroPublicoService cadastroPublicoService;
 
-    public AuthController(AuthService authService, TokenService tokenService, CadastroPublicoService cadastroPublicoService) {
+    public AuthController(AuthService authService, TokenService tokenService, CadastroPublicoService cadastroPublicoService, SegurancaHttp seguranca) {
         this.authService = authService;
         this.tokenService = tokenService;
         this.cadastroPublicoService = cadastroPublicoService;
+        this.seguranca = seguranca;
+    }
+
+    @GetMapping("/csrf")
+    public Map<String, String> csrf(HttpServletRequest http, HttpServletResponse response) {
+        return Map.of("token", seguranca.fornecerCsrf(http, response));
     }
 
     @PostMapping("/login")
-    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
-        return authService.login(request);
+    public SessaoResponse login(@Valid @RequestBody LoginRequest request, HttpServletRequest http, HttpServletResponse response) {
+        var resultado = authService.login(request, http.getRemoteAddr());
+        seguranca.abrirSessao(http, response, resultado.token());
+        return new SessaoResponse(resultado.usuario());
     }
 
     @PostMapping("/cadastro")
@@ -51,46 +54,20 @@ public class AuthController {
     }
 
     @PostMapping("/recuperar-senha")
-    public RecuperarSenhaResponse recuperarSenha(@Valid @RequestBody RecuperarSenhaRequest request,
-                                                 @CookieValue(name = COOKIE_RECUPERACAO, required = false) String cookie,
-                                                 HttpServletRequest http, HttpServletResponse response) {
-        String chave = request.chaveSolicitacao() != null ? request.chaveSolicitacao() : cookie;
-        if (chave == null || !chave.matches("[A-Za-z0-9_-]{32,128}")) {
-            byte[] bytes = new byte[32];
-            new SecureRandom().nextBytes(bytes);
-            chave = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-        }
-        var resultado = authService.solicitarRedefinicaoSenha(new RecuperarSenhaRequest(request.identificador(), chave));
-        if (resultado.codigoRecuperacao() != null) {
-            salvarCookie(response, http.isSecure(), chave, Duration.ofDays(7));
-        }
-        return resultado;
+    public RecuperarSenhaResponse recuperarSenha(@Valid @RequestBody RecuperarSenhaRequest request) {
+        return authService.solicitarRedefinicaoSenha(request);
     }
 
     @PostMapping("/redefinir-senha")
-    public Map<String, String> redefinirSenha(@Valid @RequestBody RedefinirSenhaRequest request,
-                                            @CookieValue(name = COOKIE_RECUPERACAO, required = false) String cookie,
-                                            HttpServletRequest http, HttpServletResponse response) {
-        String chave = request.chaveSolicitacao() != null ? request.chaveSolicitacao() : cookie;
-        if (chave == null || chave.isBlank()) throw new IllegalArgumentException("Informe o código de recuperação ou use o navegador da solicitação.");
-        try {
-            authService.redefinirSenha(new RedefinirSenhaRequest(request.codigoSolicitacao(), chave, request.novaSenha()));
-        } catch (RecuperacaoExpiradaException ex) {
-            salvarCookie(response, http.isSecure(), "", Duration.ZERO);
-            throw ex;
-        }
-        salvarCookie(response, http.isSecure(), "", Duration.ZERO);
-        return Map.of("mensagem", "Senha redefinida com sucesso. Faça login com a nova senha.");
+    public Map<String, String> redefinirSenha(@Valid @RequestBody RedefinirSenhaRequest request) {
+        authService.redefinirSenha(request);
+        return Map.of("mensagem", "Senha redefinida com sucesso. Faca login com a nova senha.");
     }
 
     @PostMapping("/logout")
-    public Map<String, String> logout(HttpServletRequest request) {
+    public Map<String, String> logout(HttpServletRequest request, HttpServletResponse response) {
         tokenService.removerToken(tokenService.extrairToken(request));
+        seguranca.fecharSessao(request, response);
         return Map.of("mensagem", "Logout realizado com sucesso.");
-    }
-
-    private void salvarCookie(HttpServletResponse response, boolean seguro, String chave, Duration duracao) {
-        response.addHeader(HttpHeaders.SET_COOKIE, ResponseCookie.from(COOKIE_RECUPERACAO, chave)
-                .httpOnly(true).secure(seguro).sameSite("Lax").path("/api/auth").maxAge(duracao).build().toString());
     }
 }

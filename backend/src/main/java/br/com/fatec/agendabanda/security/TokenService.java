@@ -70,8 +70,7 @@ public class TokenService {
     }
 
     public String extrairToken(HttpServletRequest request) {
-        String auth = request.getHeader("Authorization");
-        return auth != null && auth.startsWith("Bearer ") ? auth.substring(7) : request.getHeader("X-Auth-Token");
+        return SegurancaHttp.cookie(request, SegurancaHttp.COOKIE_SESSAO);
     }
 
     public SessaoUsuario sessaoObrigatoria(HttpServletRequest request) {

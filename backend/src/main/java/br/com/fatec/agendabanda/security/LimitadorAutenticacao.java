@@ -6,7 +6,7 @@ import jakarta.annotation.PostConstruct;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Locale;
 import java.nio.charset.StandardCharsets;
@@ -24,12 +24,11 @@ public class LimitadorAutenticacao {
     @Value("${app.auth.cadastro.janela-minutos:60}") private long minutosCadastro = 60;
     @Value("${app.auth.recuperacao.limite:10}") private int limiteRecuperacao = 10;
     @Value("${app.auth.recuperacao.janela-minutos:15}") private long minutosRecuperacao = 15;
-    @Value("${app.auth.login.limite-global:200}") private int globalLogin = 200;
     @Value("${app.auth.cadastro.limite-global:50}") private int globalCadastro = 50;
     @Value("${app.auth.recuperacao.limite-global:100}") private int globalRecuperacao = 100;
     private static final int MAX_CHAVES = 10000;
     private final Clock clock;
-    private final Map<String, Tentativas> tentativas = new HashMap<>();
+    private final Map<String, Tentativas> tentativas = new LinkedHashMap<>(128, 0.75f, true);
     private record Tentativas(Instant fim, int quantidade) {}
 
     public LimitadorAutenticacao(Clock clock) { this.clock = clock; }
@@ -38,7 +37,7 @@ public class LimitadorAutenticacao {
     public void validarConfiguracao() {
         if (limiteLogin <= 0 || limiteCadastro <= 0 || limiteRecuperacao <= 0
                 || minutosLogin <= 0 || minutosCadastro <= 0 || minutosRecuperacao <= 0
-                || globalLogin <= 0 || globalCadastro <= 0 || globalRecuperacao <= 0) {
+                || globalCadastro <= 0 || globalRecuperacao <= 0) {
             throw new IllegalArgumentException("Limites e janelas de autenticação devem ser positivos.");
         }
     }
@@ -46,14 +45,44 @@ public class LimitadorAutenticacao {
     public synchronized long segundosDeEspera(Tipo tipo, String ip) {
         long espera = contar(tipo, "ip:" + ip, limite(tipo));
         if (espera > 0) return espera;
-        int global = switch (tipo) { case LOGIN -> globalLogin; case CADASTRO -> globalCadastro; case RECUPERACAO -> globalRecuperacao; };
+        if (tipo == Tipo.LOGIN) return 0; // Nenhuma origem bloqueia todos os logins por um teto compartilhado.
+        int global = tipo == Tipo.CADASTRO ? globalCadastro : globalRecuperacao;
         return contar(tipo, "global", global);
     }
 
-    // O alvo é o mesmo para IPs diferentes; aliases de recuperação usam o código do membro.
+    // Cadastro e recuperação compartilham o alvo entre IPs; login usa falhas por alvo + IP.
     public synchronized void verificarIdentificador(Tipo tipo, String identificador) {
+        if (tipo == Tipo.LOGIN) throw new IllegalArgumentException("Use o limitador de falhas de login por conta e IP.");
         long espera = contar(tipo, "alvo:" + hash(identificador.trim().toLowerCase(Locale.ROOT)), limite(tipo));
         if (espera > 0) throw new LimiteAutenticacaoException(espera);
+    }
+
+    public synchronized void verificarLogin(String identificador, String ip) {
+        Instant agora = clock.instant();
+        removerExpiradas(agora);
+        var atual = tentativas.get(chaveLogin(identificador, ip));
+        if (atual != null && atual.quantidade() >= limiteLogin) {
+            throw new LimiteAutenticacaoException(Math.max(1, Duration.between(agora, atual.fim()).toSeconds()));
+        }
+    }
+
+    public synchronized void registrarFalhaLogin(String identificador, String ip) {
+        long espera = contar(Tipo.LOGIN, escopoLogin(identificador, ip), limiteLogin);
+        if (espera > 0) throw new LimiteAutenticacaoException(espera);
+    }
+
+    public synchronized void limparFalhasLogin(String identificador, String ip) {
+        tentativas.remove(chaveLogin(identificador, ip));
+    }
+
+    private String chaveLogin(String identificador, String ip) { return Tipo.LOGIN.name() + ":" + escopoLogin(identificador, ip); }
+
+    private String escopoLogin(String identificador, String ip) {
+        return "falha:" + hash(identificador.trim().toLowerCase(Locale.ROOT)) + ":" + hash(ip);
+    }
+
+    private void removerExpiradas(Instant agora) {
+        tentativas.entrySet().removeIf(item -> !item.getValue().fim().isAfter(agora));
     }
 
     private int limite(Tipo tipo) {
@@ -64,10 +93,11 @@ public class LimitadorAutenticacao {
         Duration janela = Duration.ofMinutes(switch (tipo) { case LOGIN -> minutosLogin; case CADASTRO -> minutosCadastro; case RECUPERACAO -> minutosRecuperacao; });
         String chave = tipo.name() + ":" + escopo;
         Instant agora = clock.instant();
-        tentativas.entrySet().removeIf(item -> !item.getValue().fim().isAfter(agora));
+        removerExpiradas(agora);
         var atual = tentativas.get(chave);
         if (atual == null) {
-            if (tentativas.size() >= MAX_CHAVES) return janela.toSeconds();
+            // Saturacao da memoria nao vira um bloqueio global para novos usuarios.
+            if (tentativas.size() >= MAX_CHAVES) tentativas.remove(tentativas.keySet().iterator().next());
             tentativas.put(chave, new Tentativas(agora.plus(janela), 1));
             return 0;
         }

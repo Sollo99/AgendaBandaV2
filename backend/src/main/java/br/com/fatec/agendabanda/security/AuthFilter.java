@@ -13,16 +13,30 @@ import java.io.IOException;
 public class AuthFilter extends OncePerRequestFilter {
     private final TokenService tokenService;
     private final LimitadorAutenticacao limitador;
+    private final SegurancaHttp seguranca;
 
-    public AuthFilter(TokenService tokenService, LimitadorAutenticacao limitador) {
+    public AuthFilter(TokenService tokenService, LimitadorAutenticacao limitador, SegurancaHttp seguranca) {
         this.tokenService = tokenService;
         this.limitador = limitador;
+        this.seguranca = seguranca;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         String path = request.getRequestURI();
+        if (path.startsWith("/api/")) {
+            response.setHeader("Cache-Control", "no-store");
+            response.setHeader("Pragma", "no-cache");
+            String metodo = request.getMethod();
+            boolean segura = "GET".equals(metodo) || "HEAD".equals(metodo) || "OPTIONS".equals(metodo);
+            if (!segura && !seguranca.csrfValido(request)) {
+                response.setStatus(403);
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"erro\":\"Recarregue a pagina e tente novamente.\",\"codigo\":\"CSRF_INVALIDO\"}");
+                return;
+            }
+        }
         var tipo = switch (path) {
             case "/api/auth/login" -> LimitadorAutenticacao.Tipo.LOGIN;
             case "/api/auth/cadastro" -> LimitadorAutenticacao.Tipo.CADASTRO;
@@ -41,7 +55,7 @@ public class AuthFilter extends OncePerRequestFilter {
         }
 
         if ("OPTIONS".equalsIgnoreCase(request.getMethod()) || !path.startsWith("/api/") ||
-                path.equals("/api/auth/login") || path.equals("/api/auth/cadastro") ||
+                path.equals("/api/auth/csrf") || path.equals("/api/auth/login") || path.equals("/api/auth/cadastro") ||
                 path.equals("/api/auth/recuperar-senha") || path.equals("/api/auth/redefinir-senha")) {
             filterChain.doFilter(request, response);
             return;

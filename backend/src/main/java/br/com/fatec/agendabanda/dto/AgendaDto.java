@@ -19,6 +19,8 @@ public record AgendaDto(
         String pauta,
         CidadeDto cidadeShow,
         List<MusicoResumoDto> musicos,
-        List<ParticipacaoDto> participacoes
+        List<ParticipacaoDto> participacoes,
+        Integer totalParticipantes,
+        Integer totalConfirmados
 ) {
 }

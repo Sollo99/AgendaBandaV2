@@ -7,6 +7,7 @@ import br.com.fatec.agendabanda.model.LocalEvento;
 import br.com.fatec.agendabanda.repository.CidadeRepository;
 import br.com.fatec.agendabanda.repository.LocalEventoRepository;
 import br.com.fatec.agendabanda.repository.AgendaRepository;
+import br.com.fatec.agendabanda.repository.AgendaSqlRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,12 +19,14 @@ public class LocalService {
     private final CidadeRepository cidadeRepository;
     private final MapperService mapper;
     private final AgendaRepository agendaRepository;
+    private final AgendaSqlRepository agendaSql;
 
-    public LocalService(LocalEventoRepository localRepository, CidadeRepository cidadeRepository, MapperService mapper, AgendaRepository agendaRepository) {
+    public LocalService(LocalEventoRepository localRepository, CidadeRepository cidadeRepository, MapperService mapper, AgendaRepository agendaRepository, AgendaSqlRepository agendaSql) {
         this.localRepository = localRepository;
         this.cidadeRepository = cidadeRepository;
         this.mapper = mapper;
         this.agendaRepository = agendaRepository;
+        this.agendaSql = agendaSql;
     }
 
     @Transactional(readOnly = true)
@@ -56,7 +59,7 @@ public class LocalService {
 
     @Transactional
     public void excluir(Integer id) {
-        localRepository.bloquearAgendamento();
+        agendaSql.bloquearLocal(id);
         var local = buscarLocal(id);
         if (agendaRepository.existsByLocalCodigoLocal(id)) {
             throw new IllegalArgumentException("O local está vinculado a eventos e não pode ser excluído. Altere o local desses eventos primeiro.");

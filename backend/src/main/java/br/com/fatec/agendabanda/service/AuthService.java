@@ -21,6 +21,8 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
+import java.util.Base64;
+import java.security.SecureRandom;
 
 @Service
 public class AuthService {
@@ -51,18 +53,21 @@ public class AuthService {
     }
 
     @Transactional
-    public LoginResponse login(LoginRequest request) {
+    public LoginResponse login(LoginRequest request, String enderecoIp) {
         var codigo = membroRepository.buscarCodigoPorLogin(request.login().trim()).orElse(null);
-        limitador.verificarIdentificador(LimitadorAutenticacao.Tipo.LOGIN, codigo == null ? "login:" + request.login().trim() : "membro:" + codigo);
+        String alvo = codigo == null ? "login:" + request.login().trim() : "membro:" + codigo;
+        limitador.verificarLogin(alvo, enderecoIp);
         var membro = codigo == null ? null : membroRepository.bloquearPorCodigo(codigo).orElse(null);
         boolean senhaConfere = passwordEncoder.matches(request.senha(), membro == null ? hashFicticio : membro.getSenha());
         if (!senhaConfere || membro == null || !Boolean.TRUE.equals(membro.getAtivo())
                 || !"APROVADO".equals(membro.getStatusCadastro())) {
+            limitador.registrarFalhaLogin(alvo, enderecoIp);
             throw new CredenciaisInvalidasException();
         }
 
         var sessao = new SessaoUsuario(membro.getCodigo(), membro.getNome(), membro.getLogin(), Boolean.TRUE.equals(membro.getAdministrador()));
         String token = tokenService.criarToken(sessao);
+        limitador.limparFalhasLogin(alvo, enderecoIp);
         return new LoginResponse(token, mapperService.membroDto(membro));
     }
 
@@ -71,32 +76,20 @@ public class AuthService {
         var codigoMembro = membroRepository.buscarCodigoPorIdentificador(request.identificador().trim()).orElse(null);
         limitador.verificarIdentificador(LimitadorAutenticacao.Tipo.RECUPERACAO,
                 codigoMembro == null ? "identificador:" + request.identificador().trim() : "membro:" + codigoMembro);
-        if (codigoMembro == null) {
-            return respostaPublica(request.chaveSolicitacao());
-        }
-        // Serializa pedidos do mesmo membro; a restrição única no SQL protege também a persistência.
+        if (codigoMembro == null) return respostaPublica();
         var membro = membroRepository.bloquearPorCodigo(codigoMembro).orElse(null);
-        if (membro == null || !Boolean.TRUE.equals(membro.getAtivo()) || !"APROVADO".equals(membro.getStatusCadastro())) return respostaPublica(request.chaveSolicitacao());
-
-        var ultima = ciclo.abertaValida(membro.getCodigo()).orElse(null);
-        if (ultima != null && ("APROVADA".equals(ultima.getStatus()) || "PENDENTE".equals(ultima.getStatus()))) {
-            if (!chaveConfere(ultima, request.chaveSolicitacao())) {
-                return respostaPublica(request.chaveSolicitacao());
-            }
-            if ("APROVADA".equals(ultima.getStatus())) {
-                return new RecuperarSenhaResponse(true, ultima.getCodigoRedefinicao(), "Solicitação aprovada. Defina sua nova senha.", request.chaveSolicitacao());
-            }
-            return respostaPublica(request.chaveSolicitacao());
-        }
+        if (membro == null || !Boolean.TRUE.equals(membro.getAtivo()) || !"APROVADO".equals(membro.getStatusCadastro())) return respostaPublica();
+        // A abertura nunca entrega ou valida uma credencial. A aprovacao gera outra chave.
+        if (ciclo.abertaValida(membro.getCodigo()).isPresent()) return respostaPublica();
 
         var redefinicao = new RedefinicaoSenha();
         redefinicao.setMembro(membro);
         redefinicao.setStatus("PENDENTE");
-        redefinicao.setChaveHash(hash(request.chaveSolicitacao()));
+        redefinicao.setChaveHash(hash(gerarCredencial()));
         redefinicao.setSolicitadoEm(LocalDateTime.now(clock));
         redefinicao.setExpiraEm(ciclo.prazoPendente());
         redefinicaoSenhaRepository.save(redefinicao);
-        return respostaPublica(request.chaveSolicitacao());
+        return respostaPublica();
     }
 
     @Transactional(noRollbackFor = RecuperacaoExpiradaException.class)
@@ -130,7 +123,8 @@ public class AuthService {
     }
 
     @Transactional(noRollbackFor = RecuperacaoExpiradaException.class)
-    public void decidirSolicitacao(Integer codigoSolicitacao, boolean aprovada, Integer codigoAdministrador) {
+    public DecisaoRecuperacaoResponse decidirSolicitacao(Integer codigoSolicitacao, boolean aprovada, Integer codigoAdministrador, boolean identidadeVerificada) {
+        if (aprovada && !identidadeVerificada) throw new IllegalArgumentException("Confirme a identidade do membro por um canal conhecido antes de aprovar.");
         exigirAdministradorAtivo(codigoAdministrador);
         bloquearMembroDaSolicitacao(codigoSolicitacao);
         var solicitacao = redefinicaoSenhaRepository.findByCodigoRedefinicaoAndStatus(codigoSolicitacao, "PENDENTE")
@@ -141,9 +135,16 @@ public class AuthService {
         solicitacao.setAdministrador(membroRepository.findById(codigoAdministrador)
                 .orElseThrow(() -> new IllegalArgumentException("Administrador não encontrado.")));
         solicitacao.setDecididoEm(LocalDateTime.now(clock));
-        if (aprovada) solicitacao.setExpiraEm(ciclo.prazoAprovado());
+        String credencial = null;
+        if (aprovada) {
+            credencial = gerarCredencial();
+            solicitacao.setChaveHash(hash(credencial));
+            solicitacao.setExpiraEm(ciclo.prazoAprovado());
+        }
         else ciclo.encerrar(solicitacao, "RECUSADA", "Pedido recusado pelo administrador.");
         redefinicaoSenhaRepository.save(solicitacao);
+        return new DecisaoRecuperacaoResponse(aprovada ? "Entregue o codigo somente ao membro cuja identidade foi verificada." : "Solicitacao recusada.",
+                credencial == null ? null : codigoSolicitacao + "." + credencial, aprovada ? solicitacao.getExpiraEm() : null);
     }
 
     @Transactional(noRollbackFor = RecuperacaoExpiradaException.class)
@@ -163,11 +164,15 @@ public class AuthService {
         }
     }
 
-    private RecuperarSenhaResponse respostaPublica(String chave) {
-        // O código é devolvido mesmo sem uma conta correspondente: ele não comprova sua existência.
+    private RecuperarSenhaResponse respostaPublica() {
         return new RecuperarSenhaResponse(false, null,
-                "Se os dados estiverem corretos, a solicitação será analisada por um administrador. "
-                        + "Se já houver uma solicitação aberta, use o navegador ou o código original.", chave);
+                "Se os dados estiverem corretos, um administrador analisara o pedido. Contate um administrador por um canal conhecido para confirmar sua identidade e receber o codigo de redefinicao.", null);
+    }
+
+    private String gerarCredencial() {
+        byte[] bytes = new byte[32];
+        new SecureRandom().nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
     private void bloquearMembroDaSolicitacao(Integer codigoSolicitacao) {

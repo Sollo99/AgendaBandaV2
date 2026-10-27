@@ -1,6 +1,7 @@
 package br.com.fatec.agendabanda.controller;
 
 import br.com.fatec.agendabanda.dto.AuthDtos.DecisaoRedefinicaoSenhaRequest;
+import br.com.fatec.agendabanda.dto.AuthDtos.DecisaoRecuperacaoResponse;
 import br.com.fatec.agendabanda.dto.AuthDtos.SolicitacaoRedefinicaoSenhaDto;
 import br.com.fatec.agendabanda.security.TokenService;
 import br.com.fatec.agendabanda.service.AuthService;
@@ -46,11 +47,10 @@ public class RedefinicaoSenhaController {
     }
 
     @PatchMapping("/{id}")
-    public Map<String, String> decidir(@PathVariable Integer id, @Valid @RequestBody DecisaoRedefinicaoSenhaRequest request,
+    public DecisaoRecuperacaoResponse decidir(@PathVariable Integer id, @Valid @RequestBody DecisaoRedefinicaoSenhaRequest request,
                                         HttpServletRequest http) {
         var sessao = tokenService.sessaoObrigatoria(http);
         permissaoService.exigirAdmin(sessao);
-        authService.decidirSolicitacao(id, request.aprovada(), sessao.codigo());
-        return Map.of("mensagem", request.aprovada() ? "Solicitação aprovada." : "Solicitação recusada.");
+        return authService.decidirSolicitacao(id, request.aprovada(), sessao.codigo(), Boolean.TRUE.equals(request.identidadeVerificada()));
     }
 }

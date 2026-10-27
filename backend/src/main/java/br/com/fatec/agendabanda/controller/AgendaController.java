@@ -69,7 +69,8 @@ public class AgendaController {
     @PatchMapping("/{id}/participacoes/{musicoId}")
     public ParticipacaoDto atualizarParticipacao(@PathVariable Integer id, @PathVariable Integer musicoId,
                                                    @Valid @RequestBody ParticipacaoAtualizacaoRequest request, HttpServletRequest http) {
-        permissaoService.exigirAdmin(tokenService.sessaoObrigatoria(http));
-        return participacaoService.atualizarComoAdministrador(id, musicoId, request);
+        var sessao = tokenService.sessaoObrigatoria(http);
+        permissaoService.exigirAdmin(sessao);
+        return participacaoService.atualizarComoAdministrador(id, musicoId, request, sessao);
     }
 }
