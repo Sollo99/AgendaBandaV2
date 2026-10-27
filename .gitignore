@@ -2,7 +2,7 @@
 backend/target/
 
 # Node
-web/node_modules/
+node_modules/
 web/dist/
 
 # Testes locais
@@ -34,3 +34,4 @@ RELATORIO_ETAPAS_1_A_3.md
 
 # Packed
 *.tar
+AgendaBanda-fonte*.zip
