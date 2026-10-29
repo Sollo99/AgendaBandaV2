@@ -192,7 +192,7 @@ O registro de presença fica disponível ao administrador a partir do início de
 
 ### Eventos e participações
 
-- Os horários da agenda seguem o fuso de São Paulo (`America/Sao_Paulo`).
+- Os horários da agenda seguem o fuso de São Paulo (`America/Sao_Paulo`). As respostas da API incluem offset explícito; formulários e calendário exibem esse mesmo fuso, independentemente do navegador.
 - Eventos possuem os estados `AGENDADO`, `REALIZADO` e `CANCELADO`.
 - O horário final deve ser posterior ao inicial. Um evento só pode ser marcado como realizado após o término.
 - Eventos não cancelados reservam o local e os músicos vinculados. Sobreposições são rejeitadas; horários consecutivos são permitidos.
@@ -233,7 +233,7 @@ AgendaBanda/
 └── README.md
 ```
 
-O frontend consome a API REST. No backend, os serviços coordenam as operações e as transações. Os cadastros usam Spring Data JPA; a agenda, as participações e os relatórios também utilizam JDBC para executar os objetos SQL. Os scripts estão em `database` e possuem cópias em `backend/src/main/resources/db/scripts`.
+O frontend consome a API REST. No backend, os serviços coordenam as operações e as transações. Os cadastros usam Spring Data JPA; a agenda, as participações e os relatórios também utilizam JDBC para executar os objetos SQL. Os scripts SQL têm uma única fonte em `database` e são executados na ordem indicada na instalação.
 
 ### Modelo de dados
 
@@ -447,6 +447,7 @@ Os nomes, tipos, valores padrão, chaves e restrições abaixo correspondem ao [
 - `ux_membros_cpf`: índice único em `cpf`, filtrado por `cpf IS NOT NULL`.
 - `ux_membros_email`: índice único em `email`, filtrado por `email IS NOT NULL`.
 - `ux_membros_login`: índice único em `login`, filtrado por `login IS NOT NULL`.
+- `ix_membros_nome_codigo`: `(nome, codigo)`, utilizado na listagem paginada de usuários.
 
 **Regras da aplicação e das procedures:** O cadastro público define `PENDENTE`, `ativo = 0` e `administrador = 0`, substituindo os padrões do schema. A aplicação protege o último administrador ativo e utiliza desativação para preservar os vínculos.
 
@@ -584,7 +585,8 @@ Os nomes, tipos, valores padrão, chaves e restrições abaixo correspondem ao [
 
 **Índices adicionais:**
 
-- `ix_agenda_periodo`: `(dt_hora_in, dt_hora_fim) INCLUDE (codigo_local, status)`.
+- `ix_agenda_periodo`: `(dt_hora_in, codigo_agenda) INCLUDE (dt_hora_fim, codigo_local, status)`, utilizado nos filtros de data e na ordenação da agenda.
+- `ix_agenda_local_periodo`: `(codigo_local, dt_hora_in) INCLUDE (dt_hora_fim, status)`, utilizado nas consultas por local.
 
 **Regras da aplicação e das procedures:** As procedures verificam permissões, atividade dos participantes e conflitos por local ou músico. `REALIZADO` exige término já ocorrido; presença registrada impede cancelamento ou reagendamento para o futuro. A exclusão protege eventos realizados ou com presença/ausência.
 
@@ -811,7 +813,7 @@ Os nomes, tipos, valores padrão, chaves e restrições abaixo correspondem ao [
 
 - `ix_historico_operacoes_data`: `(data_hora DESC, codigo_operacao DESC)`.
 
-**Regras da aplicação e das procedures:** Os triggers registram membros e participações. O histórico de membros omite CPF, e-mail, login e credenciais; o de participações omite o texto da observação. O responsável vem do contexto da sessão. A retenção padrão é de 180 dias.
+**Regras da aplicação e das procedures:** Os triggers registram membros e participações. O histórico de membros omite CPF, e-mail, login e credenciais; trocas de senha geram um registro com `senha_alterada: true`, sem copiar a senha ou o hash. O histórico de participações omite o texto da observação. O responsável vem do contexto da sessão ou do membro que concluiu uma recuperação válida. A retenção padrão é de 180 dias.
 
 </details>
 
@@ -830,7 +832,7 @@ Os nomes, tipos, valores padrão, chaves e restrições abaixo correspondem ao [
 | Função com variável-tabela | `fn_resumo_periodo` | Retorna os indicadores de eventos agrupados por tipo no período. |
 | Trigger | `trg_agenda_historico` | Registra criação, alteração, reagendamento, cancelamento e exclusão de eventos. |
 | Trigger | `trg_participacao_historico` | Registra operações nas participações sem copiar o texto livre da observação. |
-| Trigger | `trg_membros_historico` | Registra alterações dos campos administrativos selecionados dos membros. |
+| Trigger | `trg_membros_historico` | Registra alterações dos campos administrativos selecionados e trocas de senha sem copiar credenciais. |
 
 `AgendaSqlRepository` chama as três procedures, consulta a view de agenda e usa a função de conflitos. `RelatorioSqlRepository` consulta as views de presença e ocupação e as funções de taxa e resumo. Os triggers são disparados pelas gravações realizadas pela aplicação.
 
@@ -849,18 +851,22 @@ O arquivo [backend/.env.example](backend/.env.example) reúne as opções de con
 | `SERVER_PORT` | Porta do backend; padrão `8080`. |
 | `CORS_ALLOWED_ORIGINS` | Origens autorizadas a acessar a API; padrão `http://localhost:5173`. |
 | `AUTH_COOKIE_SECURE` | Use `true` ao publicar em HTTPS; o valor `false` atende ao desenvolvimento local em HTTP. |
+| `SPRING_PROFILES_ACTIVE` | O perfil `prod` força cookies `Secure`, inclusive atrás de proxy HTTPS. |
 | `FORWARD_HEADERS_STRATEGY` e `PROXY_IPS_REGEX` | Configuração dos cabeçalhos encaminhados por um proxy confiável. |
 | `AUTH_RECUPERACAO_PENDENTE_HORAS` e `AUTH_RECUPERACAO_APROVADA_HORAS` | Validade do pedido e do código de recuperação. |
 | `AUDITORIA_EVENTOS_DIAS` e `AUDITORIA_OPERACOES_DIAS` | Retenção dos históricos; padrões de 365 e 180 dias. |
 
 - Senhas são armazenadas como hash BCrypt. Tokens de sessão e códigos de recuperação também têm somente seus hashes persistidos.
 - A sessão tem duração de oito horas e utiliza cookie `HttpOnly` com `SameSite=Strict`. Operações de escrita exigem token CSRF, preparado pelo frontend.
-- O login tem limitação por IP e por falhas da combinação conta/IP. Cadastro e recuperação possuem limites próprios; excesso retorna HTTP 429.
+- O login tem limitação por IP e por falhas da combinação conta/IP. Cadastro e recuperação possuem limites por IP, pela combinação identificador/IP e um teto global próprio; excesso retorna HTTP 429. Um IP não esgota o limite por identificador de outras origens.
 - Alterar a senha encerra as sessões do membro e invalida autorizações de recuperação abertas.
+- Alterações administrativas adquirem um lock transacional compartilhado entre as instâncias da aplicação para proteger a existência do último administrador ativo.
 - Relatórios e históricos exigem permissão administrativa. O histórico de membros omite CPF, e-mail, login e credenciais; campos livres de eventos podem conter informações inseridas pelos usuários.
 - A limpeza dos históricos é feita em lotes, conforme os prazos configurados, sem arquivamento automático.
 
-Em uma publicação, altere as credenciais de demonstração, utilize HTTPS e configure a origem real do frontend. Para acesso direto ao backend, mantenha `FORWARD_HEADERS_STRATEGY=NONE`. Se houver proxy reverso, configure `NATIVE` e restrinja `PROXY_IPS_REGEX` aos IPs confiáveis do proxy, que deve controlar os cabeçalhos encaminhados.
+Os contadores de tentativas são mantidos em memória para a execução em uma única instância. Ao reiniciar a aplicação, esses contadores são reiniciados; uma implantação com múltiplas instâncias precisa de controle compartilhado no proxy ou em um armazenamento comum.
+
+Em uma publicação, altere as credenciais de demonstração, utilize HTTPS, ative `SPRING_PROFILES_ACTIVE=prod` e configure a origem real do frontend. Para acesso direto ao backend, mantenha `FORWARD_HEADERS_STRATEGY=NONE`. Se houver proxy reverso, configure `NATIVE` e restrinja `PROXY_IPS_REGEX` aos IPs confiáveis do proxy, que deve controlar os cabeçalhos encaminhados.
 
 ## API
 
@@ -882,6 +888,14 @@ A base local é `http://localhost:8080/api`. As rotas privadas exigem a sessão 
 | Relatórios | `GET /relatorios?inicio=AAAA-MM-DD&fim=AAAA-MM-DD`; `GET /relatorios/historicos`. |
 
 As permissões de cada operação são conferidas pelo backend; estar autenticado não concede acesso administrativo.
+
+As listagens `GET /agenda` e `GET /membros` aceitam `page` (a partir de zero) e `size` (de 1 a 100). Os padrões são 50 eventos e 20 membros por página. A agenda também aceita `inicio` e `fim` em `AAAA-MM-DD`, incluindo os dois dias, para filtrar a data de início do evento. Exemplo: `GET /agenda?page=0&size=50&inicio=2026-11-01&fim=2026-11-30`.
+
+A resposta paginada contém `content`, `page`, `size`, `totalElements` e `totalPages`. O calendário consulta somente o período visível e oferece navegação entre páginas quando necessário.
+
+Datas e horas nas respostas usam ISO 8601 com offset, como `2026-11-01T19:00:00-03:00`. Na criação e edição, a API aceita valores com offset ou valores sem offset interpretados como horário de São Paulo. Uma lista de participantes aceita até 500 códigos por requisição.
+
+Erros da API seguem o formato `{"erro":"Mensagem","codigo":"CODIGO"}`, com HTTP 400 para dados inválidos, 401 para autenticação, 403 para permissão, 404 para recurso inexistente, 409 para conflito, 429 para excesso de tentativas e 500 para falhas internas. Detalhes internos permanecem nos logs do servidor.
 
 ## Solução de problemas
 
