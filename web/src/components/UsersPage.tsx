@@ -1,23 +1,23 @@
-import { SyntheticEvent, useEffect, useState } from "react";
+import { SyntheticEvent, useState } from "react";
 import { Box, Button, Card, Grid, HStack, Input, Stack, Text } from "@chakra-ui/react";
 import { api } from "../api";
+import { useConsulta } from "../hooks/useConsulta";
+import Pagination from "./Pagination";
 import { encerrarSessao } from "../sessao";
 import type { Membro } from "../types";
 
 const vazio = { nome: "", cpf: "", email: "", login: "", senha: "", administrador: false, ativo: true, perfil: "MEMBRO", instrumento: "", biografia: "", especialidade: "" };
 
 export default function UsersPage({ usuario, onAtualizar }: { usuario: Membro; onAtualizar: (usuario: Membro) => void }) {
-  const [membros, setMembros] = useState<Membro[]>([]);
+  const [page, setPage] = useState(0);
+  const consulta = useConsulta(signal => api.listarMembros(page, 20, signal), [page]);
+  const membros = consulta.dados?.content ?? [];
+  const carregar = consulta.recarregar;
   const [form, setForm] = useState({ ...vazio });
   const [editando, setEditando] = useState<number | null>(null);
   const [erro, setErro] = useState("");
   const [analisando, setAnalisando] = useState<number | null>(null);
 
-  async function carregar() {
-    setMembros(await api.listarMembros());
-  }
-
-  useEffect(() => { carregar().catch((e) => setErro(e.message)); }, []);
 
   function preencher(m: Membro) {
     setEditando(m.codigo);
@@ -103,7 +103,8 @@ export default function UsersPage({ usuario, onAtualizar }: { usuario: Membro; o
   return (
     <Stack gap="5">
       <Box><Text fontSize="2xl" fontWeight="bold">Gerenciamento de usuários</Text><Text color="fg.muted">Apenas administradores acessam esta tela. Desative membros para preservar os vínculos e históricos.</Text></Box>
-      {erro && <Text color="red.500">{erro}</Text>}
+      {(erro || consulta.erro) && <Text color="red.500">{erro || consulta.erro}</Text>}
+      {consulta.carregando && <Text>Carregando usuários...</Text>}
       <Card.Root borderRadius="2xl"><Card.Body>
         <Stack as="form" gap="4" onSubmit={salvar}>
           <Grid templateColumns={{ base: "1fr", md: "repeat(3, 1fr)" }} gap="4">
@@ -131,6 +132,8 @@ export default function UsersPage({ usuario, onAtualizar }: { usuario: Membro; o
           </HStack>}
         </Stack></Card.Body></Card.Root>)}
       </Grid>
+      {consulta.dados && <Pagination page={page} totalPages={consulta.dados.totalPages} totalElements={consulta.dados.totalElements}
+        carregando={consulta.carregando} onChange={setPage} />}
     </Stack>
   );
 }

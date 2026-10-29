@@ -1,17 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Box, Button, Flex, Heading, HStack, Text } from "@chakra-ui/react";
 import { api, ApiError } from "./api";
 import { encerrarSessao, EVENTO_SESSAO_ENCERRADA, CHAVE_MUDANCA_SESSAO, geracaoSessao, sincronizarSessao } from "./sessao";
 import type { Membro } from "./types";
 import LoginPage from "./components/LoginPage";
 import AgendaPage from "./components/AgendaPage";
-import UsersPage from "./components/UsersPage";
-import LocaisPage from "./components/LocaisPage";
-import CidadesPage from "./components/CidadesPage";
-import TiposEventoPage from "./components/TiposEventoPage";
+const UsersPage = lazy(() => import("./components/UsersPage"));
+const LocaisPage = lazy(() => import("./components/LocaisPage"));
+const CidadesPage = lazy(() => import("./components/CidadesPage"));
+const TiposEventoPage = lazy(() => import("./components/TiposEventoPage"));
 import PerfilPage from "./components/PerfilPage";
-import RelatoriosPage from "./components/RelatoriosPage";
-import SolicitacoesSenhaAdmin from "./components/SolicitacoesSenhaAdmin";
+const RelatoriosPage = lazy(() => import("./components/RelatoriosPage"));
+const SolicitacoesSenhaAdmin = lazy(() => import("./components/SolicitacoesSenhaAdmin"));
 import { ColorModeButton } from "./components/ui/ColorModeButton";
 
 type Aba = "agenda" | "perfil" | "usuarios" | "locais" | "cidades" | "tipos" | "relatorios";
@@ -23,20 +23,24 @@ export default function App() {
   const [erroInicial, setErroInicial] = useState("");
   const [mensagemLogin, setMensagemLogin] = useState("");
   const validacaoAtual = useRef(0);
+  const pedidoSessao = useRef<AbortController | null>(null);
 
   const validarSessao = useCallback(async () => {
+    pedidoSessao.current?.abort();
+    const controle = new AbortController();
+    pedidoSessao.current = controle;
     const tentativa = ++validacaoAtual.current;
     const geracao = geracaoSessao();
     setCarregando(true);
     setErroInicial("");
     setUsuario(null);
     try {
-      const perfil = await api.obterMeuPerfil();
+      const perfil = await api.obterMeuPerfil(controle.signal);
       if (tentativa === validacaoAtual.current && geracao === geracaoSessao()) {
         setUsuario(perfil);
       }
     } catch (err) {
-      if (tentativa === validacaoAtual.current && !(err instanceof ApiError && err.status === 401)) {
+      if (!controle.signal.aborted && tentativa === validacaoAtual.current && !(err instanceof ApiError && err.status === 401)) {
         setErroInicial("Não foi possível verificar sua sessão. Confira a conexão e tente novamente.");
       }
     } finally {
@@ -67,6 +71,7 @@ export default function App() {
     void validarSessao();
     return () => {
       ++validacaoAtual.current;
+      pedidoSessao.current?.abort();
       window.removeEventListener(EVENTO_SESSAO_ENCERRADA, aoEncerrar);
       window.removeEventListener("storage", aoMudarStorage);
     };
@@ -100,7 +105,7 @@ export default function App() {
 
   return (
     <Box minH="100vh" bg="bg.subtle">
-      {usuario.administrador && <SolicitacoesSenhaAdmin />}
+      {usuario.administrador && <Suspense fallback={null}><SolicitacoesSenhaAdmin /></Suspense>}
       <Box borderBottomWidth="1px" bg="bg.panel" position="sticky" top="0" zIndex="10">
         <Flex maxW="1180px" mx="auto" px="6" py="4" justify="space-between" align="center" gap="4" wrap="wrap">
           <Box>
@@ -121,7 +126,7 @@ export default function App() {
         </Flex>
       </Box>
 
-      <Box maxW="1180px" mx="auto" p="6">
+      <Box maxW="1180px" mx="auto" p="6"><Suspense fallback={<Text>Carregando tela...</Text>}>
         {aba === "agenda" && <AgendaPage usuario={usuario} />}
         {aba === "perfil" && <PerfilPage usuario={usuario} onAtualizar={atualizarUsuario} />}
         {aba === "usuarios" && usuario.administrador && <UsersPage usuario={usuario} onAtualizar={atualizarUsuario} />}
@@ -129,7 +134,7 @@ export default function App() {
         {aba === "cidades" && usuario.administrador && <CidadesPage />}
         {aba === "tipos" && usuario.administrador && <TiposEventoPage />}
         {aba === "relatorios" && usuario.administrador && <RelatoriosPage />}
-      </Box>
+      </Suspense></Box>
     </Box>
   );
 }

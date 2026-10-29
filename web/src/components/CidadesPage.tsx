@@ -1,21 +1,19 @@
-import { SyntheticEvent, useEffect, useState } from "react";
+import { SyntheticEvent, useState } from "react";
 import { Box, Button, Card, Grid, HStack, Input, Stack, Text } from "@chakra-ui/react";
 import { api } from "../api";
+import { useConsulta } from "../hooks/useConsulta";
 import type { Cidade } from "../types";
 
 const vazio = { nome: "", uf: "" };
 
 export default function CidadesPage() {
-  const [cidades, setCidades] = useState<Cidade[]>([]);
+  const consulta = useConsulta(signal => api.listarCidades(signal));
+  const cidades = consulta.dados ?? [];
+  const carregar = consulta.recarregar;
   const [form, setForm] = useState({ ...vazio });
   const [editando, setEditando] = useState<number | null>(null);
   const [erro, setErro] = useState("");
 
-  async function carregar() {
-    setCidades(await api.listarCidades());
-  }
-
-  useEffect(() => { carregar().catch((e) => setErro(e.message)); }, []);
 
   async function salvar(e: SyntheticEvent) {
     e.preventDefault();
@@ -45,7 +43,7 @@ export default function CidadesPage() {
   return (
     <Stack gap="5">
       <Box><Text fontSize="2xl" fontWeight="bold">Cidades</Text><Text color="fg.muted">Cidades disponíveis para locais e shows.</Text></Box>
-      {erro && <Text color="red.500">{erro}</Text>}
+      {(erro || consulta.erro) && <Text color="red.500">{erro || consulta.erro}</Text>}
       <Card.Root borderRadius="2xl"><Card.Body><Stack as="form" gap="4" onSubmit={salvar}><Grid templateColumns={{ base: "1fr", md: "1fr 180px" }} gap="4"><Box><Text mb="1">Nome</Text><Input maxLength={100} value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} required /></Box><Box><Text mb="1">UF</Text><Input value={form.uf} maxLength={2} onChange={(e) => setForm({ ...form, uf: e.target.value.toUpperCase() })} required /></Box></Grid><HStack><Button type="submit">{editando ? "Atualizar" : "Cadastrar"}</Button><Button type="button" variant="outline" onClick={() => { setForm({ ...vazio }); setEditando(null); }}>Limpar</Button></HStack></Stack></Card.Body></Card.Root>
       <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)" }} gap="3">{cidades.map((cidade) => <Card.Root key={cidade.codigoCidade} borderRadius="2xl"><Card.Body><FlexCidade cidade={cidade} onEditar={() => { setEditando(cidade.codigoCidade); setForm({ nome: cidade.nome, uf: cidade.uf }); }} onExcluir={() => excluir(cidade)} /></Card.Body></Card.Root>)}</Grid>
     </Stack>

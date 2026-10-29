@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
 import { Box, Button, Card, Grid, Heading, HStack, Input, Stack, Text } from "@chakra-ui/react";
 import { api } from "../api";
+import { dataSaoPaulo, formatarDataHora } from "../datas";
 import type { HistoricoRegistro, Relatorio } from "../types";
 
 function Tabela({ colunas, children }: { colunas: string[]; children: ReactNode }) {
@@ -17,7 +18,7 @@ function json(valor: string | null) {
 }
 
 export default function RelatoriosPage() {
-  const ano = new Date().getFullYear();
+  const ano = Number(dataSaoPaulo().slice(0, 4));
   const [inicio, setInicio] = useState(`${ano}-01-01`);
   const [fim, setFim] = useState(`${ano}-12-31`);
   const [relatorio, setRelatorio] = useState<Relatorio | null>(null);
@@ -25,14 +26,18 @@ export default function RelatoriosPage() {
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
   const sequencia = useRef(0);
+  const controle = useRef<AbortController | null>(null);
 
   async function carregar(de: string, ate: string) {
     if (!de || !ate || de > ate) { setErro("Informe um período válido."); return; }
+    controle.current?.abort();
+    const atual = new AbortController();
+    controle.current = atual;
     const pedido = ++sequencia.current;
     setCarregando(true);
     setErro("");
     try {
-      const [dados, registros] = await Promise.all([api.consultarRelatorios(de, ate), api.consultarHistoricos(de, ate)]);
+      const [dados, registros] = await Promise.all([api.consultarRelatorios(de, ate, atual.signal), api.consultarHistoricos(de, ate, atual.signal)]);
       if (pedido !== sequencia.current) return;
       setRelatorio(dados);
       setHistoricos(registros);
@@ -45,7 +50,7 @@ export default function RelatoriosPage() {
 
   useEffect(() => {
     void carregar(`${ano}-01-01`, `${ano}-12-31`);
-    return () => { ++sequencia.current; };
+    return () => { ++sequencia.current; controle.current?.abort(); };
   }, [ano]);
 
   function consultar(e: SyntheticEvent) { e.preventDefault(); void carregar(inicio, fim); }
@@ -88,7 +93,7 @@ export default function RelatoriosPage() {
         <Text color="fg.muted" mb="3">Últimos 100 registros pela data da operação no período selecionado. Abra um registro para comparar os dados.</Text>
         {!historicos.length && <Text>Nenhuma alteração registrada neste período.</Text>}
         <Stack gap="3">{historicos.map(h => <Box key={`${h.entidade}:${h.codigo}`} borderWidth="1px" borderRadius="md" p="3">
-          <details><summary>{new Date(h.dataHora).toLocaleString("pt-BR")} · {h.entidade} #{h.registro} · {h.operacao}</summary>
+          <details><summary>{formatarDataHora(h.dataHora)} · {h.entidade} #{h.registro} · {h.operacao}</summary>
             <Text my="2">Responsável: {h.responsavel ?? "Sem usuário autenticado"}{h.codigoResponsavel ? ` (#${h.codigoResponsavel})` : ""}</Text>
             <Grid templateColumns={{ base: "1fr", md: "1fr 1fr" }} gap="3">
               <Box><Text fontWeight="bold">Antes</Text><pre className="historico-json">{json(h.dadosAnteriores)}</pre></Box>
