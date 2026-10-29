@@ -75,5 +75,13 @@ BEGIN
             i.cadastro_decidido_em, i.cadastro_decidido_por, i.identificadores_liberados_em, i.identificadores_liberados_por
         FOR JSON PATH, INCLUDE_NULL_VALUES, WITHOUT_ARRAY_WRAPPER) END AS json_dados) novo
     WHERE d.codigo IS NULL OR i.codigo IS NULL OR antigo.json_dados COLLATE Latin1_General_100_BIN2 <> novo.json_dados COLLATE Latin1_General_100_BIN2;
+
+    -- Audita a troca da credencial sem armazenar valores antigos, novos ou hashes.
+    -- Separado do retrato cadastral para registrar tambem mudancas apenas de senha.
+    INSERT INTO historico_operacoes (membro_responsavel, entidade_afetada, codigo_registro_afetado, tipo_operacao, data_hora, dados_anteriores, dados_novos)
+    SELECT @responsavel, N'MEMBRO', CONVERT(NVARCHAR(100), i.codigo), N'UPDATE',
+        @agora, NULL, N'{"senha_alterada":true}'
+    FROM inserted i INNER JOIN deleted d ON d.codigo = i.codigo
+    WHERE d.senha COLLATE Latin1_General_100_BIN2 <> i.senha COLLATE Latin1_General_100_BIN2;
 END;
 GO
