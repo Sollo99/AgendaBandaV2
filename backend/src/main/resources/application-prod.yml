@@ -1,0 +1,5 @@
+# Ativar com SPRING_PROFILES_ACTIVE=prod ao publicar por HTTPS.
+app:
+  auth:
+    cookie:
+      secure: true
