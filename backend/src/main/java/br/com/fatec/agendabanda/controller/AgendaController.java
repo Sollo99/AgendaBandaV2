@@ -1,6 +1,9 @@
 package br.com.fatec.agendabanda.controller;
 
 import br.com.fatec.agendabanda.dto.AgendaDto;
+import br.com.fatec.agendabanda.dto.PaginaDto;
+import java.time.LocalDate;
+import org.springframework.format.annotation.DateTimeFormat;
 import br.com.fatec.agendabanda.dto.AgendaRequest;
 import br.com.fatec.agendabanda.dto.ParticipacaoAtualizacaoRequest;
 import br.com.fatec.agendabanda.dto.ParticipacaoDto;
@@ -31,12 +34,15 @@ public class AgendaController {
     }
 
     @GetMapping
-    public List<AgendaDto> listar() {
-        return service.listar();
+    public PaginaDto<AgendaDto> listar(@RequestParam(defaultValue = "0") int page,
+                                      @RequestParam(defaultValue = "50") int size,
+                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate inicio,
+                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fim) {
+        return service.listar(page, size, inicio, fim);
     }
 
     @GetMapping("/{id}")
-    public AgendaDto detalhar(@PathVariable Integer id) {
+    public AgendaDto detalhar(@PathVariable @jakarta.validation.constraints.Positive Integer id) {
         return service.detalhar(id);
     }
 
@@ -46,28 +52,28 @@ public class AgendaController {
     }
 
     @PutMapping("/{id}")
-    public AgendaDto atualizar(@PathVariable Integer id, @Valid @RequestBody AgendaRequest request, HttpServletRequest http) {
+    public AgendaDto atualizar(@PathVariable @jakarta.validation.constraints.Positive Integer id, @Valid @RequestBody AgendaRequest request, HttpServletRequest http) {
         return service.atualizar(id, request, tokenService.sessaoObrigatoria(http));
     }
 
     @DeleteMapping("/{id}")
-    public Map<String, String> excluir(@PathVariable Integer id, HttpServletRequest http) {
+    public Map<String, String> excluir(@PathVariable @jakarta.validation.constraints.Positive Integer id, HttpServletRequest http) {
         service.excluir(id, tokenService.sessaoObrigatoria(http));
         return Map.of("mensagem", "Evento excluído com sucesso.");
     }
 
     @GetMapping("/{id}/participacoes")
-    public List<ParticipacaoDto> listarParticipacoes(@PathVariable Integer id) {
+    public List<ParticipacaoDto> listarParticipacoes(@PathVariable @jakarta.validation.constraints.Positive Integer id) {
         return participacaoService.listar(id);
     }
 
     @PatchMapping("/{id}/participacoes/minha")
-    public ParticipacaoDto atualizarMinhaParticipacao(@PathVariable Integer id, @Valid @RequestBody ParticipacaoAtualizacaoRequest request, HttpServletRequest http) {
+    public ParticipacaoDto atualizarMinhaParticipacao(@PathVariable @jakarta.validation.constraints.Positive Integer id, @Valid @RequestBody ParticipacaoAtualizacaoRequest request, HttpServletRequest http) {
         return participacaoService.atualizarPropria(id, request, tokenService.sessaoObrigatoria(http));
     }
 
     @PatchMapping("/{id}/participacoes/{musicoId}")
-    public ParticipacaoDto atualizarParticipacao(@PathVariable Integer id, @PathVariable Integer musicoId,
+    public ParticipacaoDto atualizarParticipacao(@PathVariable @jakarta.validation.constraints.Positive Integer id, @PathVariable @jakarta.validation.constraints.Positive Integer musicoId,
                                                    @Valid @RequestBody ParticipacaoAtualizacaoRequest request, HttpServletRequest http) {
         var sessao = tokenService.sessaoObrigatoria(http);
         permissaoService.exigirAdmin(sessao);

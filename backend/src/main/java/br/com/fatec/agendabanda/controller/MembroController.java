@@ -1,6 +1,8 @@
 package br.com.fatec.agendabanda.controller;
 
 import br.com.fatec.agendabanda.dto.MembroDto;
+import br.com.fatec.agendabanda.dto.PaginaDto;
+import br.com.fatec.agendabanda.dto.StatusMembroRequest;
 import br.com.fatec.agendabanda.dto.MembroRequest;
 import br.com.fatec.agendabanda.dto.MusicoResumoDto;
 import br.com.fatec.agendabanda.dto.AuthDtos.DecisaoCadastroRequest;
@@ -28,9 +30,9 @@ public class MembroController {
     }
 
     @GetMapping
-    public List<MembroDto> listar(HttpServletRequest http) {
+    public PaginaDto<MembroDto> listar(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size, HttpServletRequest http) {
         permissaoService.exigirAdmin(tokenService.sessaoObrigatoria(http));
-        return membroService.listar();
+        return membroService.listar(page, size);
     }
 
     @GetMapping("/musicos")
@@ -46,26 +48,26 @@ public class MembroController {
     }
 
     @PutMapping("/{id}")
-    public MembroDto atualizar(@PathVariable Integer id, @Valid @RequestBody MembroRequest request, HttpServletRequest http) {
+    public MembroDto atualizar(@PathVariable @jakarta.validation.constraints.Positive Integer id, @Valid @RequestBody MembroRequest request, HttpServletRequest http) {
         permissaoService.exigirAdmin(tokenService.sessaoObrigatoria(http));
         return membroService.atualizar(id, request);
     }
 
     @PatchMapping("/{id}/status")
-    public MembroDto status(@PathVariable Integer id, @RequestBody Map<String, Boolean> body, HttpServletRequest http) {
+    public MembroDto status(@PathVariable @jakarta.validation.constraints.Positive Integer id, @Valid @RequestBody StatusMembroRequest body, HttpServletRequest http) {
         permissaoService.exigirAdmin(tokenService.sessaoObrigatoria(http));
-        return membroService.alterarStatus(id, Boolean.TRUE.equals(body.get("ativo")));
+        return membroService.alterarStatus(id, body.ativo());
     }
 
     @PatchMapping("/{id}/cadastro")
-    public MembroDto decidirCadastro(@PathVariable Integer id, @Valid @RequestBody DecisaoCadastroRequest body, HttpServletRequest http) {
+    public MembroDto decidirCadastro(@PathVariable @jakarta.validation.constraints.Positive Integer id, @Valid @RequestBody DecisaoCadastroRequest body, HttpServletRequest http) {
         var sessao = tokenService.sessaoObrigatoria(http);
         permissaoService.exigirAdmin(sessao);
         return membroService.decidirCadastro(id, body.aprovada(), sessao.codigo());
     }
 
     @PostMapping("/{id}/cadastro/liberar-identificadores")
-    public MembroDto liberarIdentificadores(@PathVariable Integer id, HttpServletRequest http) {
+    public MembroDto liberarIdentificadores(@PathVariable @jakarta.validation.constraints.Positive Integer id, HttpServletRequest http) {
         var sessao = tokenService.sessaoObrigatoria(http);
         permissaoService.exigirAdmin(sessao);
         return membroService.liberarIdentificadores(id, sessao.codigo());

@@ -1,5 +1,9 @@
 package br.com.fatec.agendabanda.service;
 
+import br.com.fatec.agendabanda.exception.RecursoNaoEncontradoException;
+
+import br.com.fatec.agendabanda.exception.RegraNegocioException;
+
 import br.com.fatec.agendabanda.dto.CidadeDto;
 import br.com.fatec.agendabanda.dto.CidadeRequest;
 import br.com.fatec.agendabanda.model.Cidade;
@@ -49,13 +53,13 @@ public class CidadeService {
     public void excluir(Integer id) {
         buscar(id);
         if (localRepository.existsByCidadeCodigoCidade(id) || showRepository.existsByCidadeCodigoCidade(id)) {
-            throw new IllegalArgumentException("A cidade está vinculada a locais ou shows e não pode ser excluída.");
+            throw new RegraNegocioException("A cidade está vinculada a locais ou shows e não pode ser excluída.");
         }
         cidadeRepository.deleteById(id);
     }
 
     private Cidade buscar(Integer id) {
-        return cidadeRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Cidade não encontrada."));
+        return cidadeRepository.findById(id).orElseThrow(() -> new RecursoNaoEncontradoException("Cidade não encontrada."));
     }
 
     private void aplicar(Cidade cidade, CidadeRequest request, Integer idAtual) {
@@ -63,7 +67,7 @@ public class CidadeService {
         String uf = request.uf().trim().toUpperCase(Locale.ROOT);
         cidadeRepository.findByNomeIgnoreCaseAndUfIgnoreCase(nome, uf)
                 .filter(existente -> !existente.getCodigoCidade().equals(idAtual))
-                .ifPresent(existente -> { throw new IllegalArgumentException("Cidade já cadastrada para esta UF."); });
+                .ifPresent(existente -> { throw new RegraNegocioException("Cidade já cadastrada para esta UF."); });
         cidade.setNome(nome);
         cidade.setUf(uf);
     }

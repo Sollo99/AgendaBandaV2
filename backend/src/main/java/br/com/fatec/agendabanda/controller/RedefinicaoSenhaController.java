@@ -39,7 +39,7 @@ public class RedefinicaoSenhaController {
     }
 
     @PostMapping("/{id}/cancelar")
-    public Map<String, String> cancelar(@PathVariable Integer id, HttpServletRequest http) {
+    public Map<String, String> cancelar(@PathVariable @jakarta.validation.constraints.Positive Integer id, HttpServletRequest http) {
         var sessao = tokenService.sessaoObrigatoria(http);
         permissaoService.exigirAdmin(sessao);
         authService.cancelarSolicitacao(id, sessao.codigo());
@@ -47,7 +47,7 @@ public class RedefinicaoSenhaController {
     }
 
     @PatchMapping("/{id}")
-    public DecisaoRecuperacaoResponse decidir(@PathVariable Integer id, @Valid @RequestBody DecisaoRedefinicaoSenhaRequest request,
+    public DecisaoRecuperacaoResponse decidir(@PathVariable @jakarta.validation.constraints.Positive Integer id, @Valid @RequestBody DecisaoRedefinicaoSenhaRequest request,
                                         HttpServletRequest http) {
         var sessao = tokenService.sessaoObrigatoria(http);
         permissaoService.exigirAdmin(sessao);

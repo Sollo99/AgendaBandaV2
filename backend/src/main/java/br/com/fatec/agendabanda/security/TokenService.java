@@ -74,6 +74,7 @@ public class TokenService {
     }
 
     public SessaoUsuario sessaoObrigatoria(HttpServletRequest request) {
+        if (request.getAttribute("sessao") instanceof SessaoUsuario autenticada) return autenticada;
         return buscarSessao(extrairToken(request)).orElseThrow(SessaoExpiradaException::new);
     }
 

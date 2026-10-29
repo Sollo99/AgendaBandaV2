@@ -1,5 +1,7 @@
 package br.com.fatec.agendabanda.service;
 
+import br.com.fatec.agendabanda.exception.RegraNegocioException;
+
 import br.com.fatec.agendabanda.dto.RelatorioDtos.*;
 import br.com.fatec.agendabanda.repository.RelatorioSqlRepository;
 import org.springframework.stereotype.Service;
@@ -33,7 +35,7 @@ public class RelatorioService {
         LocalDate de = inicio == null ? hoje.withDayOfYear(1) : inicio;
         LocalDate ate = fim == null ? hoje.withMonth(12).withDayOfMonth(31) : fim;
         if (ate.isBefore(de) || de.getYear() < 1900 || ate.getYear() > 9998) {
-            throw new IllegalArgumentException("Informe um período válido entre os anos 1900 e 9998.");
+            throw new RegraNegocioException("Informe um período válido entre os anos 1900 e 9998.");
         }
         return new LocalDate[]{de, ate};
     }

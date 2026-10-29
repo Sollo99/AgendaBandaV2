@@ -32,13 +32,13 @@ public class CidadeController {
     }
 
     @PutMapping("/{id}")
-    public CidadeDto atualizar(@PathVariable Integer id, @Valid @RequestBody CidadeRequest request, HttpServletRequest http) {
+    public CidadeDto atualizar(@PathVariable @jakarta.validation.constraints.Positive Integer id, @Valid @RequestBody CidadeRequest request, HttpServletRequest http) {
         permissaoService.exigirAdmin(tokenService.sessaoObrigatoria(http));
         return service.atualizar(id, request);
     }
 
     @DeleteMapping("/{id}")
-    public Map<String, String> excluir(@PathVariable Integer id, HttpServletRequest http) {
+    public Map<String, String> excluir(@PathVariable @jakarta.validation.constraints.Positive Integer id, HttpServletRequest http) {
         permissaoService.exigirAdmin(tokenService.sessaoObrigatoria(http));
         service.excluir(id);
         return Map.of("mensagem", "Cidade excluída com sucesso.");

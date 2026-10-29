@@ -1,5 +1,7 @@
 package br.com.fatec.agendabanda.service;
 
+import br.com.fatec.agendabanda.exception.RegraNegocioException;
+
 import br.com.fatec.agendabanda.model.RedefinicaoSenha;
 import br.com.fatec.agendabanda.repository.MembroRepository;
 import br.com.fatec.agendabanda.repository.RedefinicaoSenhaRepository;
@@ -23,7 +25,7 @@ public class CicloRecuperacaoService {
     public CicloRecuperacaoService(RedefinicaoSenhaRepository repository, MembroRepository membroRepository, Clock clock,
             @Value("${app.auth.recuperacao.pendente-horas:24}") long horasPendente,
             @Value("${app.auth.recuperacao.aprovada-horas:2}") long horasAprovada) {
-        if (horasPendente <= 0 || horasAprovada <= 0) throw new IllegalArgumentException("Os prazos de recuperação devem ser positivos.");
+        if (horasPendente <= 0 || horasAprovada <= 0) throw new RegraNegocioException("Os prazos de recuperação devem ser positivos.");
         this.repository = repository;
         this.membroRepository = membroRepository;
         this.clock = clock;

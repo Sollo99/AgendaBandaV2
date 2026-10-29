@@ -1,5 +1,9 @@
 package br.com.fatec.agendabanda.service;
 
+import br.com.fatec.agendabanda.exception.RecursoNaoEncontradoException;
+
+import br.com.fatec.agendabanda.exception.RegraNegocioException;
+
 import br.com.fatec.agendabanda.dto.TipoEventoDto;
 import br.com.fatec.agendabanda.dto.TipoEventoRequest;
 import br.com.fatec.agendabanda.model.TipoEvento;
@@ -45,13 +49,13 @@ public class TipoEventoService {
         var tipo = buscar(id);
         boolean tipoEmUso = agendaRepository.existsByTipoEventoCodigoTipo(id);
         if (tipoEmUso && !tipo.getNome().equalsIgnoreCase(request.nome().trim())) {
-            throw new IllegalArgumentException("Não é possível renomear um tipo já usado em eventos.");
+            throw new RegraNegocioException("Não é possível renomear um tipo já usado em eventos.");
         }
         if (tipoEmUso && Boolean.FALSE.equals(request.ativo())) {
-            throw new IllegalArgumentException("Não é possível desativar um tipo já usado em eventos.");
+            throw new RegraNegocioException("Não é possível desativar um tipo já usado em eventos.");
         }
         if (tipoEmUso && !tipo.getCategoriaDetalhe().equals(categoria(request.categoriaDetalhe()))) {
-            throw new IllegalArgumentException("Não é possível alterar a categoria de detalhe de um tipo já usado.");
+            throw new RegraNegocioException("Não é possível alterar a categoria de detalhe de um tipo já usado.");
         }
         aplicar(tipo, request, id);
         return mapper.tipoEventoDto(tipoEventoRepository.save(tipo));
@@ -61,20 +65,20 @@ public class TipoEventoService {
     public void excluir(Integer id) {
         buscar(id);
         if (agendaRepository.existsByTipoEventoCodigoTipo(id)) {
-            throw new IllegalArgumentException("O tipo está vinculado a eventos e não pode ser excluído.");
+            throw new RegraNegocioException("O tipo está vinculado a eventos e não pode ser excluído.");
         }
         tipoEventoRepository.deleteById(id);
     }
 
     private TipoEvento buscar(Integer id) {
-        return tipoEventoRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Tipo de evento não encontrado."));
+        return tipoEventoRepository.findById(id).orElseThrow(() -> new RecursoNaoEncontradoException("Tipo de evento não encontrado."));
     }
 
     private void aplicar(TipoEvento tipo, TipoEventoRequest request, Integer idAtual) {
         String nome = request.nome().trim().toUpperCase(Locale.ROOT);
         tipoEventoRepository.findByNomeIgnoreCase(nome)
                 .filter(existente -> !existente.getCodigoTipo().equals(idAtual))
-                .ifPresent(existente -> { throw new IllegalArgumentException("Tipo de evento já cadastrado."); });
+                .ifPresent(existente -> { throw new RegraNegocioException("Tipo de evento já cadastrado."); });
         tipo.setNome(nome);
         tipo.setDescricao(request.descricao() == null || request.descricao().isBlank() ? null : request.descricao().trim());
         tipo.setCategoriaDetalhe(categoria(request.categoriaDetalhe()));
@@ -84,7 +88,7 @@ public class TipoEventoService {
     private String categoria(String valor) {
         String categoria = valor == null || valor.isBlank() ? "EVENTO" : valor.trim().toUpperCase(Locale.ROOT);
         if (!List.of("EVENTO", "ENSAIO", "SHOW", "REUNIAO").contains(categoria)) {
-            throw new IllegalArgumentException("Categoria de detalhe inválida.");
+            throw new RegraNegocioException("Categoria de detalhe inválida.");
         }
         return categoria;
     }

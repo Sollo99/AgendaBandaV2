@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import br.com.fatec.agendabanda.dto.ErroApi;
 
 @Component
 public class AuthFilter extends OncePerRequestFilter {
@@ -31,9 +32,7 @@ public class AuthFilter extends OncePerRequestFilter {
             String metodo = request.getMethod();
             boolean segura = "GET".equals(metodo) || "HEAD".equals(metodo) || "OPTIONS".equals(metodo);
             if (!segura && !seguranca.csrfValido(request)) {
-                response.setStatus(403);
-                response.setContentType("application/json;charset=UTF-8");
-                response.getWriter().write("{\"erro\":\"Recarregue a pagina e tente novamente.\",\"codigo\":\"CSRF_INVALIDO\"}");
+                ErroApi.escrever(response, 403, "CSRF_INVALIDO", "Recarregue a página e tente novamente.");
                 return;
             }
         }
@@ -46,10 +45,8 @@ public class AuthFilter extends OncePerRequestFilter {
         if ("POST".equalsIgnoreCase(request.getMethod()) && tipo != null) {
             long espera = limitador.segundosDeEspera(tipo, request.getRemoteAddr());
             if (espera > 0) {
-                response.setStatus(429);
                 response.setHeader("Retry-After", Long.toString(espera));
-                response.setContentType("application/json;charset=UTF-8");
-                response.getWriter().write("{\"erro\":\"Muitas tentativas. Aguarde e tente novamente.\"}");
+                ErroApi.escrever(response, 429, "LIMITE_REQUISICOES", "Muitas tentativas. Aguarde e tente novamente.");
                 return;
             }
         }
@@ -61,11 +58,16 @@ public class AuthFilter extends OncePerRequestFilter {
             return;
         }
 
-        var sessao = tokenService.buscarSessao(tokenService.extrairToken(request));
+        java.util.Optional<SessaoUsuario> sessao;
+        try {
+            sessao = tokenService.buscarSessao(tokenService.extrairToken(request));
+        } catch (org.springframework.dao.DataAccessException ex) {
+            org.slf4j.LoggerFactory.getLogger(AuthFilter.class).error("Falha ao consultar sessao.", ex);
+            ErroApi.escrever(response, 500, "ERRO_INTERNO", "Não foi possível verificar a sessão. Tente novamente mais tarde.");
+            return;
+        }
         if (sessao.isEmpty()) {
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"erro\":\"Acesso não autenticado.\"}");
+            ErroApi.escrever(response, 401, "NAO_AUTENTICADO", "Acesso não autenticado.");
             return;
         }
 

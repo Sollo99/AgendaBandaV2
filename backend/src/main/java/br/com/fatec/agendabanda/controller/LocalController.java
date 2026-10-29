@@ -43,13 +43,13 @@ public class LocalController {
     }
 
     @PutMapping("/locais/{id}")
-    public LocalDto atualizar(@PathVariable Integer id, @Valid @RequestBody LocalRequest request, HttpServletRequest http) {
+    public LocalDto atualizar(@PathVariable @jakarta.validation.constraints.Positive Integer id, @Valid @RequestBody LocalRequest request, HttpServletRequest http) {
         permissaoService.exigirAdmin(tokenService.sessaoObrigatoria(http));
         return service.atualizar(id, request);
     }
 
     @DeleteMapping("/locais/{id}")
-    public Map<String, String> excluir(@PathVariable Integer id, HttpServletRequest http) {
+    public Map<String, String> excluir(@PathVariable @jakarta.validation.constraints.Positive Integer id, HttpServletRequest http) {
         permissaoService.exigirAdmin(tokenService.sessaoObrigatoria(http));
         service.excluir(id);
         return Map.of("mensagem", "Local excluído com sucesso.");

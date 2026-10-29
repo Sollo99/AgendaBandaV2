@@ -1,5 +1,7 @@
 package br.com.fatec.agendabanda.service;
 
+import br.com.fatec.agendabanda.exception.RegraNegocioException;
+
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -21,7 +23,7 @@ public class RetencaoHistoricosJob {
 
     @PostConstruct
     public void validar() {
-        if (eventosDias < 1 || operacoesDias < 1) throw new IllegalArgumentException("Retencao deve ser positiva.");
+        if (eventosDias < 1 || operacoesDias < 1) throw new RegraNegocioException("Retencao deve ser positiva.");
     }
 
     @Scheduled(initialDelayString="${app.auditoria.retencao.varredura-ms:3600000}",

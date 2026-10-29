@@ -21,6 +21,6 @@ public record AgendaRequest(
         @Size(max = 500) String observacao,
         @Size(max = 800) String pauta,
         @Positive Integer cidadeId,
-        List<@NotNull @Positive Integer> musicosIds
+        @Size(max = 500) List<@NotNull @Positive Integer> musicosIds
 ) {
 }

@@ -1,5 +1,7 @@
 package br.com.fatec.agendabanda.service;
 
+import br.com.fatec.agendabanda.exception.RegraNegocioException;
+
 import br.com.fatec.agendabanda.dto.AuthDtos.*;
 import br.com.fatec.agendabanda.model.RedefinicaoSenha;
 import br.com.fatec.agendabanda.repository.MembroRepository;
@@ -9,6 +11,7 @@ import br.com.fatec.agendabanda.security.TokenService;
 import br.com.fatec.agendabanda.security.LimitadorAutenticacao;
 import br.com.fatec.agendabanda.exception.CredenciaisInvalidasException;
 import br.com.fatec.agendabanda.exception.RecuperacaoExpiradaException;
+import br.com.fatec.agendabanda.exception.RedefinicaoInvalidaException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,21 +34,21 @@ public class AuthService {
     private final TokenService tokenService;
     private final MapperService mapperService;
     private final RedefinicaoSenhaRepository redefinicaoSenhaRepository;
-    private final MembroService membroService;
+    private final SenhaMembroService senhaMembroService;
     private final CicloRecuperacaoService ciclo;
     private final Clock clock;
     private final String hashFicticio;
     private final LimitadorAutenticacao limitador;
 
     public AuthService(MembroRepository membroRepository, BCryptPasswordEncoder passwordEncoder, TokenService tokenService, MapperService mapperService,
-                       RedefinicaoSenhaRepository redefinicaoSenhaRepository, MembroService membroService,
+                       RedefinicaoSenhaRepository redefinicaoSenhaRepository, SenhaMembroService senhaMembroService,
                        CicloRecuperacaoService ciclo, Clock clock, LimitadorAutenticacao limitador) {
         this.membroRepository = membroRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
         this.mapperService = mapperService;
         this.redefinicaoSenhaRepository = redefinicaoSenhaRepository;
-        this.membroService = membroService;
+        this.senhaMembroService = senhaMembroService;
         this.ciclo = ciclo;
         this.clock = clock;
         this.limitador = limitador;
@@ -72,10 +75,10 @@ public class AuthService {
     }
 
     @Transactional
-    public RecuperarSenhaResponse solicitarRedefinicaoSenha(RecuperarSenhaRequest request) {
+    public RecuperarSenhaResponse solicitarRedefinicaoSenha(RecuperarSenhaRequest request, String enderecoIp) {
         var codigoMembro = membroRepository.buscarCodigoPorIdentificador(request.identificador().trim()).orElse(null);
         limitador.verificarIdentificador(LimitadorAutenticacao.Tipo.RECUPERACAO,
-                codigoMembro == null ? "identificador:" + request.identificador().trim() : "membro:" + codigoMembro);
+                codigoMembro == null ? "identificador:" + request.identificador().trim() : "membro:" + codigoMembro, enderecoIp);
         if (codigoMembro == null) return respostaPublica();
         var membro = membroRepository.bloquearPorCodigo(codigoMembro).orElse(null);
         if (membro == null || !Boolean.TRUE.equals(membro.getAtivo()) || !"APROVADO".equals(membro.getStatusCadastro())) return respostaPublica();
@@ -92,25 +95,27 @@ public class AuthService {
         return respostaPublica();
     }
 
-    @Transactional(noRollbackFor = RecuperacaoExpiradaException.class)
-    public void redefinirSenha(RedefinirSenhaRequest request) {
+    @Transactional(noRollbackFor = RedefinicaoInvalidaException.class)
+    public void redefinirSenha(RedefinirSenhaRequest request, String enderecoIp) {
         var alvo = redefinicaoSenhaRepository.buscarCodigoMembro(request.codigoSolicitacao()).orElse(null);
         limitador.verificarIdentificador(LimitadorAutenticacao.Tipo.RECUPERACAO,
-                alvo == null ? "solicitacao:" + request.codigoSolicitacao() : "membro:" + alvo);
-        bloquearMembroDaSolicitacao(request.codigoSolicitacao());
+                alvo == null ? "solicitacao:" + request.codigoSolicitacao() : "membro:" + alvo, enderecoIp);
+        if (alvo == null) throw new RedefinicaoInvalidaException();
+        membroRepository.bloquearPorCodigo(alvo).orElseThrow(RedefinicaoInvalidaException::new);
         var redefinicao = redefinicaoSenhaRepository.findByCodigoRedefinicaoAndStatus(request.codigoSolicitacao(), "APROVADA")
-                .orElseThrow(() -> new IllegalArgumentException("A solicitação não está aprovada ou já foi utilizada."));
-        if (ciclo.expirarSeNecessario(redefinicao)) throw new RecuperacaoExpiradaException();
+                .orElseThrow(RedefinicaoInvalidaException::new);
         if (!chaveConfere(redefinicao, request.chaveSolicitacao())) {
-            throw new IllegalArgumentException("Solicitação de redefinição inválida.");
+            throw new RedefinicaoInvalidaException();
         }
+        // Persiste a expiracao, mas nao a distingue de qualquer outro codigo indisponivel.
+        if (ciclo.expirarSeNecessario(redefinicao)) throw new RedefinicaoInvalidaException();
         if (!Boolean.TRUE.equals(redefinicao.getMembro().getAtivo()) || !"APROVADO".equals(redefinicao.getMembro().getStatusCadastro())) {
-            throw new IllegalArgumentException("Solicitação de redefinição inválida.");
+            throw new RedefinicaoInvalidaException();
         }
         ciclo.encerrar(redefinicao, "CONCLUIDA", "Senha redefinida pela solicitação aprovada.");
         redefinicao.setConcluidoEm(LocalDateTime.now(clock));
         redefinicaoSenhaRepository.saveAndFlush(redefinicao);
-        membroService.redefinirSenha(redefinicao.getMembro(), request.novaSenha());
+        senhaMembroService.redefinirSenha(redefinicao.getMembro(), request.novaSenha());
     }
 
     public List<SolicitacaoRedefinicaoSenhaDto> listarSolicitacoesAbertas() {
@@ -124,16 +129,16 @@ public class AuthService {
 
     @Transactional(noRollbackFor = RecuperacaoExpiradaException.class)
     public DecisaoRecuperacaoResponse decidirSolicitacao(Integer codigoSolicitacao, boolean aprovada, Integer codigoAdministrador, boolean identidadeVerificada) {
-        if (aprovada && !identidadeVerificada) throw new IllegalArgumentException("Confirme a identidade do membro por um canal conhecido antes de aprovar.");
+        if (aprovada && !identidadeVerificada) throw new RegraNegocioException("Confirme a identidade do membro por um canal conhecido antes de aprovar.");
         exigirAdministradorAtivo(codigoAdministrador);
         bloquearMembroDaSolicitacao(codigoSolicitacao);
         var solicitacao = redefinicaoSenhaRepository.findByCodigoRedefinicaoAndStatus(codigoSolicitacao, "PENDENTE")
-                .orElseThrow(() -> new IllegalArgumentException("Solicitação pendente não encontrada."));
+                .orElseThrow(() -> new RegraNegocioException("Solicitação pendente não encontrada."));
         if (ciclo.expirarSeNecessario(solicitacao)) throw new RecuperacaoExpiradaException();
-        if (!Boolean.TRUE.equals(solicitacao.getMembro().getAtivo())) throw new IllegalArgumentException("O membro não está ativo.");
+        if (!Boolean.TRUE.equals(solicitacao.getMembro().getAtivo())) throw new RegraNegocioException("O membro não está ativo.");
         solicitacao.setStatus(aprovada ? "APROVADA" : "RECUSADA");
         solicitacao.setAdministrador(membroRepository.findById(codigoAdministrador)
-                .orElseThrow(() -> new IllegalArgumentException("Administrador não encontrado.")));
+                .orElseThrow(() -> new RegraNegocioException("Administrador não encontrado.")));
         solicitacao.setDecididoEm(LocalDateTime.now(clock));
         String credencial = null;
         if (aprovada) {
@@ -152,7 +157,7 @@ public class AuthService {
         exigirAdministradorAtivo(codigoAdministrador);
         bloquearMembroDaSolicitacao(codigoSolicitacao);
         var pedido = redefinicaoSenhaRepository.findByCodigoRedefinicaoAndStatusIn(codigoSolicitacao, CicloRecuperacaoService.ABERTAS)
-                .orElseThrow(() -> new IllegalArgumentException("A solicitação já está encerrada."));
+                .orElseThrow(() -> new RegraNegocioException("A solicitação já está encerrada."));
         if (ciclo.expirarSeNecessario(pedido)) throw new RecuperacaoExpiradaException();
         ciclo.encerrar(pedido, "CANCELADA", "Cancelada pelo administrador de código " + codigoAdministrador + ".");
         redefinicaoSenhaRepository.saveAndFlush(pedido);
@@ -177,9 +182,9 @@ public class AuthService {
 
     private void bloquearMembroDaSolicitacao(Integer codigoSolicitacao) {
         var codigoMembro = redefinicaoSenhaRepository.buscarCodigoMembro(codigoSolicitacao)
-                .orElseThrow(() -> new IllegalArgumentException("Solicitação inválida."));
+                .orElseThrow(() -> new RegraNegocioException("Solicitação inválida."));
         membroRepository.bloquearPorCodigo(codigoMembro)
-                .orElseThrow(() -> new IllegalArgumentException("Solicitação inválida."));
+                .orElseThrow(() -> new RegraNegocioException("Solicitação inválida."));
     }
 
     private boolean chaveConfere(RedefinicaoSenha redefinicao, String chave) {

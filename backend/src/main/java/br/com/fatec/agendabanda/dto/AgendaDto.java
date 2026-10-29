@@ -23,4 +23,9 @@ public record AgendaDto(
         Integer totalParticipantes,
         Integer totalConfirmados
 ) {
+    public AgendaDto comParticipacoes(List<ParticipacaoDto> lista) {
+        return new AgendaDto(codigoAgenda, titulo, descricao, dataHoraInicio, dataHoraFim, local, criador,
+                tipoEvento, status, tipoEspecifico, repertorio, observacao, pauta, cidadeShow,
+                lista.stream().map(ParticipacaoDto::musico).toList(), lista, totalParticipantes, totalConfirmados);
+    }
 }

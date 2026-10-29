@@ -50,10 +50,10 @@ public class LimitadorAutenticacao {
         return contar(tipo, "global", global);
     }
 
-    // Cadastro e recuperação compartilham o alvo entre IPs; login usa falhas por alvo + IP.
-    public synchronized void verificarIdentificador(Tipo tipo, String identificador) {
+    // Um solicitante nao pode esgotar o limite do mesmo alvo para outras origens.
+    public synchronized void verificarIdentificador(Tipo tipo, String identificador, String ip) {
         if (tipo == Tipo.LOGIN) throw new IllegalArgumentException("Use o limitador de falhas de login por conta e IP.");
-        long espera = contar(tipo, "alvo:" + hash(identificador.trim().toLowerCase(Locale.ROOT)), limite(tipo));
+        long espera = contar(tipo, "alvo:" + hash(identificador.trim().toLowerCase(Locale.ROOT)) + ":ip:" + hash(ip), limite(tipo));
         if (espera > 0) throw new LimiteAutenticacaoException(espera);
     }
 

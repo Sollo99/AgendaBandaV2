@@ -43,13 +43,13 @@ public class TipoEventoController {
     }
 
     @PutMapping("/{id}")
-    public TipoEventoDto atualizar(@PathVariable Integer id, @Valid @RequestBody TipoEventoRequest request, HttpServletRequest http) {
+    public TipoEventoDto atualizar(@PathVariable @jakarta.validation.constraints.Positive Integer id, @Valid @RequestBody TipoEventoRequest request, HttpServletRequest http) {
         permissaoService.exigirAdmin(tokenService.sessaoObrigatoria(http));
         return service.atualizar(id, request);
     }
 
     @DeleteMapping("/{id}")
-    public Map<String, String> excluir(@PathVariable Integer id, HttpServletRequest http) {
+    public Map<String, String> excluir(@PathVariable @jakarta.validation.constraints.Positive Integer id, HttpServletRequest http) {
         permissaoService.exigirAdmin(tokenService.sessaoObrigatoria(http));
         service.excluir(id);
         return Map.of("mensagem", "Tipo de evento excluído com sucesso.");

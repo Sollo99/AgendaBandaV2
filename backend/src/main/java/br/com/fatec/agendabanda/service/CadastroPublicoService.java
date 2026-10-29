@@ -16,10 +16,10 @@ public class CadastroPublicoService {
     }
 
     // Fora da transação de criação: uma colisão concorrente já foi revertida antes da resposta pública.
-    public void solicitar(CadastroRequest request) {
-        limitador.verificarIdentificador(LimitadorAutenticacao.Tipo.CADASTRO, "cpf:" + request.cpf().replaceAll("[^0-9]", ""));
-        limitador.verificarIdentificador(LimitadorAutenticacao.Tipo.CADASTRO, "email:" + request.email().trim());
-        limitador.verificarIdentificador(LimitadorAutenticacao.Tipo.CADASTRO, "login:" + request.login().trim());
+    public void solicitar(CadastroRequest request, String enderecoIp) {
+        limitador.verificarIdentificador(LimitadorAutenticacao.Tipo.CADASTRO, "cpf:" + request.cpf().replaceAll("[^0-9]", ""), enderecoIp);
+        limitador.verificarIdentificador(LimitadorAutenticacao.Tipo.CADASTRO, "email:" + request.email().trim(), enderecoIp);
+        limitador.verificarIdentificador(LimitadorAutenticacao.Tipo.CADASTRO, "login:" + request.login().trim(), enderecoIp);
         try {
             membros.criarCadastro(request);
         } catch (DataIntegrityViolationException ex) {

@@ -1,5 +1,9 @@
 package br.com.fatec.agendabanda.service;
 
+import br.com.fatec.agendabanda.exception.RecursoNaoEncontradoException;
+
+import br.com.fatec.agendabanda.exception.RegraNegocioException;
+
 import br.com.fatec.agendabanda.dto.*;
 import br.com.fatec.agendabanda.model.Membro;
 import br.com.fatec.agendabanda.model.Musico;
@@ -26,14 +30,15 @@ public class MembroService {
     private final BCryptPasswordEncoder passwordEncoder;
     private final MapperService mapperService;
     private final ParticipacaoEventoRepository participacaoRepository;
-    private final CicloRecuperacaoService cicloRecuperacao;
+    private final SenhaMembroService senhas;
+    private final ValidadorMembro validador;
     private final TokenService tokenService;
     private final Clock clock;
     private final AuditoriaContexto auditoria;
 
     public MembroService(MembroRepository membroRepository, MusicoRepository musicoRepository, ProdutorRepository produtorRepository,
                          BCryptPasswordEncoder passwordEncoder, MapperService mapperService,
-                         ParticipacaoEventoRepository participacaoRepository, CicloRecuperacaoService cicloRecuperacao,
+                         ParticipacaoEventoRepository participacaoRepository, SenhaMembroService senhas, ValidadorMembro validador,
                          TokenService tokenService, Clock clock, AuditoriaContexto auditoria) {
         this.membroRepository = membroRepository;
         this.musicoRepository = musicoRepository;
@@ -41,15 +46,19 @@ public class MembroService {
         this.passwordEncoder = passwordEncoder;
         this.mapperService = mapperService;
         this.participacaoRepository = participacaoRepository;
-        this.cicloRecuperacao = cicloRecuperacao;
+        this.senhas = senhas;
+        this.validador = validador;
         this.tokenService = tokenService;
         this.clock = clock;
         this.auditoria = auditoria;
     }
 
     @Transactional(readOnly = true)
-    public List<MembroDto> listar() {
-        return membroRepository.findAll().stream().map(mapperService::membroDto).toList();
+    public PaginaDto<MembroDto> listar(int page, int size) {
+        PaginaDto.validar(page, size);
+        var resultado = membroRepository.listarPagina(org.springframework.data.domain.PageRequest.of(page, size,
+                org.springframework.data.domain.Sort.by("nome", "codigo")));
+        return PaginaDto.de(resultado.getContent(), page, size, resultado.getTotalElements());
     }
 
     @Transactional(readOnly = true)
@@ -60,16 +69,16 @@ public class MembroService {
     }
 
     public Membro buscarEntidade(Integer id) {
-        return membroRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Membro não encontrado."));
+        return membroRepository.findById(id).orElseThrow(() -> new RecursoNaoEncontradoException("Membro não encontrado."));
     }
 
     @Transactional
     public MembroDto criar(MembroRequest request) {
         auditoria.prepararDoRequest();
-        if (request.senha() == null || request.senha().isBlank()) throw new IllegalArgumentException("Senha é obrigatória no cadastro.");
+        if (request.senha() == null || request.senha().isBlank()) throw new RegraNegocioException("Senha é obrigatória no cadastro.");
 
         var membro = new Membro();
-        validarUnicidade(request.cpf(), request.email(), request.login(), null);
+        validador.validarUnicidade(request.cpf(), request.email(), request.login(), null);
         aplicarDados(membro, request);
         membro.setSenha(passwordEncoder.encode(request.senha()));
         membro.setCriadoEm(LocalDateTime.now(clock));
@@ -88,12 +97,12 @@ public class MembroService {
                 request.ativo() == null || request.ativo(), administradores);
         if (!"APROVADO".equals(membro.getStatusCadastro())
                 && (Boolean.TRUE.equals(request.administrador()) || request.ativo() == null || request.ativo())) {
-            throw new IllegalArgumentException("Analise o cadastro antes de ativar a conta ou conceder administração.");
+            throw new RegraNegocioException("Analise o cadastro antes de ativar a conta ou conceder administração.");
         }
-        validarUnicidade(request.cpf(), request.email(), request.login(), id);
+        validador.validarUnicidade(request.cpf(), request.email(), request.login(), id);
         aplicarDados(membro, request);
         if (request.senha() != null && !request.senha().isBlank()) {
-            aplicarNovaSenha(membro, request.senha());
+            senhas.alterar(membro, request.senha());
         }
         var salvo = membroRepository.save(membro);
         salvarPerfil(salvo, request);
@@ -106,7 +115,7 @@ public class MembroService {
         var administradores = membroRepository.bloquearAdministradoresAtivos();
         var membro = buscarParaAtualizar(id);
         if (ativo && !"APROVADO".equals(membro.getStatusCadastro())) {
-            throw new IllegalArgumentException("O cadastro precisa ser aprovado antes da ativação.");
+            throw new RegraNegocioException("O cadastro precisa ser aprovado antes da ativação.");
         }
         protegerUltimoAdministrador(membro, Boolean.TRUE.equals(membro.getAdministrador()), ativo, administradores);
         membro.setAtivo(ativo);
@@ -120,11 +129,11 @@ public class MembroService {
         // Consulta os três campos mesmo se um deles já existir, sem indicar qual colidiu.
         boolean duplicado = membroRepository.findByLogin(request.login().trim()).isPresent()
                 | membroRepository.findByEmailIgnoreCase(request.email().trim()).isPresent()
-                | membroRepository.findByCpf(normalizarCpf(request.cpf())).isPresent();
+                | membroRepository.findByCpf(ValidadorMembro.normalizarCpf(request.cpf())).isPresent();
         if (duplicado) return;
         var membro = new Membro();
         membro.setNome(request.nome().trim());
-        membro.setCpf(normalizarCpf(request.cpf()));
+        membro.setCpf(ValidadorMembro.normalizarCpf(request.cpf()));
         membro.setEmail(request.email().trim());
         membro.setLogin(request.login().trim());
         membro.setSenha(hashSenha);
@@ -149,7 +158,7 @@ public class MembroService {
         }
         var membro = buscarParaAtualizar(id);
         if ("APROVADO".equals(membro.getStatusCadastro()) || (!aprovada && "RECUSADO".equals(membro.getStatusCadastro()))) {
-            throw new IllegalArgumentException("O cadastro já foi analisado.");
+            throw new RegraNegocioException("O cadastro já foi analisado.");
         }
         exigirIdentificadoresReservados(membro);
         membro.setStatusCadastro(aprovada ? "APROVADO" : "RECUSADO");
@@ -168,7 +177,7 @@ public class MembroService {
         }
         var membro = buscarParaAtualizar(id);
         if (!"RECUSADO".equals(membro.getStatusCadastro())) {
-            throw new IllegalArgumentException("Somente cadastros recusados podem ter seus identificadores liberados.");
+            throw new RegraNegocioException("Somente cadastros recusados podem ter seus identificadores liberados.");
         }
         if (membro.getIdentificadoresLiberadosEm() != null) return mapperService.membroDto(membro);
         membro.setCpf(null);
@@ -183,82 +192,27 @@ public class MembroService {
 
     private void exigirIdentificadoresReservados(Membro membro) {
         if (membro.getIdentificadoresLiberadosEm() != null) {
-            throw new IllegalArgumentException("Os identificadores deste cadastro foram liberados. É necessário fazer um novo cadastro.");
+            throw new RegraNegocioException("Os identificadores deste cadastro foram liberados. É necessário fazer um novo cadastro.");
         }
-    }
-
-    @Transactional(readOnly = true)
-    public MembroDto obterProprio(Integer codigoMembro) {
-        return mapperService.membroDto(buscarEntidade(codigoMembro));
-    }
-
-    @Transactional
-    public MembroDto atualizarProprio(Integer codigoMembro, PerfilRequest request) {
-        auditoria.prepararDoRequest();
-        var membro = buscarParaAtualizar(codigoMembro);
-        validarUnicidade(request.cpf(), request.email(), request.login(), codigoMembro);
-        membro.setNome(request.nome().trim());
-        membro.setCpf(normalizarCpf(request.cpf()));
-        membro.setEmail(request.email().trim());
-        membro.setLogin(request.login().trim());
-        if (request.novaSenha() != null && !request.novaSenha().isBlank()) {
-            if (request.senhaAtual() == null || !passwordEncoder.matches(request.senhaAtual(), membro.getSenha())) {
-                throw new IllegalArgumentException("A senha atual informada é inválida.");
-            }
-            aplicarNovaSenha(membro, request.novaSenha());
-        }
-        var salvo = membroRepository.save(membro);
-        musicoRepository.findById(codigoMembro).ifPresent(musico -> {
-            if (request.instrumento() != null) musico.setInstrumento(request.instrumento().trim());
-            if (request.biografia() != null) musico.setBiografia(request.biografia().trim());
-            musicoRepository.save(musico);
-        });
-        return mapperService.membroDto(salvo);
-    }
-
-    @Transactional
-    public void redefinirSenha(Membro membro, String novaSenha) {
-        auditoria.prepararDoRequest();
-        buscarParaAtualizar(membro.getCodigo());
-        aplicarNovaSenha(membro, novaSenha);
-        membroRepository.save(membro);
     }
 
     private Membro buscarParaAtualizar(Integer id) {
-        return membroRepository.bloquearPorCodigo(id).orElseThrow(() -> new IllegalArgumentException("Membro não encontrado."));
-    }
-
-    private void aplicarNovaSenha(Membro membro, String novaSenha) {
-        membro.setSenha(passwordEncoder.encode(novaSenha));
-        cicloRecuperacao.cancelarAbertas(membro.getCodigo(), "Senha alterada por outro caminho.");
-        tokenService.removerSessoesDoMembro(membro.getCodigo());
+        return membroRepository.bloquearPorCodigo(id).orElseThrow(() -> new RecursoNaoEncontradoException("Membro não encontrado."));
     }
 
     private void aplicarDados(Membro membro, MembroRequest request) {
         membro.setNome(request.nome().trim());
-        membro.setCpf(normalizarCpf(request.cpf()));
+        membro.setCpf(ValidadorMembro.normalizarCpf(request.cpf()));
         membro.setEmail(request.email().trim());
         membro.setLogin(request.login().trim());
         membro.setAdministrador(Boolean.TRUE.equals(request.administrador()));
         membro.setAtivo(request.ativo() == null || request.ativo());
     }
 
-    private void validarUnicidade(String cpf, String email, String login, Integer codigoAtual) {
-        membroRepository.findByLogin(login.trim())
-                .filter(membro -> !membro.getCodigo().equals(codigoAtual))
-                .ifPresent(membro -> { throw new IllegalArgumentException("Login já cadastrado."); });
-        membroRepository.findByEmailIgnoreCase(email.trim())
-                .filter(membro -> !membro.getCodigo().equals(codigoAtual))
-                .ifPresent(membro -> { throw new IllegalArgumentException("E-mail já cadastrado."); });
-        membroRepository.findByCpf(normalizarCpf(cpf))
-                .filter(membro -> !membro.getCodigo().equals(codigoAtual))
-                .ifPresent(membro -> { throw new IllegalArgumentException("CPF já cadastrado."); });
-    }
-
     private void salvarPerfil(Membro membro, MembroRequest request) {
         String perfil = request.perfil() == null ? "MEMBRO" : request.perfil().trim().toUpperCase(Locale.ROOT);
         if (!List.of("MEMBRO", "MUSICO", "PRODUTOR").contains(perfil)) {
-            throw new IllegalArgumentException("Perfil inválido.");
+            throw new RegraNegocioException("Perfil inválido.");
         }
         var musicoExistente = musicoRepository.findById(membro.getCodigo());
         var produtorExistente = produtorRepository.findById(membro.getCodigo());
@@ -291,20 +245,17 @@ public class MembroService {
 
     private void exigirMusicoSemVinculos(Integer id) {
         if (participacaoRepository.existsByMusicoCodigo(id)) {
-            throw new IllegalArgumentException("O músico possui participações em eventos. Desative o membro em vez de remover seu perfil de músico.");
+            throw new RegraNegocioException("O músico possui participações em eventos. Desative o membro em vez de remover seu perfil de músico.");
         }
     }
 
     private void protegerUltimoAdministrador(Membro membro, boolean administrador, boolean ativo, List<Membro> administradoresAtivos) {
         if (Boolean.TRUE.equals(membro.getAdministrador()) && Boolean.TRUE.equals(membro.getAtivo())
                 && (!administrador || !ativo) && administradoresAtivos.size() <= 1) {
-            throw new IllegalArgumentException("É necessário manter pelo menos um administrador ativo. Cadastre ou ative outro administrador primeiro.");
+            throw new RegraNegocioException("É necessário manter pelo menos um administrador ativo. Cadastre ou ative outro administrador primeiro.");
         }
     }
 
-    private String normalizarCpf(String cpf) {
-        return cpf.replaceAll("[^0-9]", "");
-    }
 
     private String textoOuPadrao(String valor) {
         return valor == null || valor.isBlank() ? "Não informado" : valor.trim();

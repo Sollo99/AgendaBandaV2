@@ -46,21 +46,21 @@ public class AuthController {
     }
 
     @PostMapping("/cadastro")
-    public ResponseEntity<Map<String, String>> cadastro(@Valid @RequestBody CadastroRequest request) {
-        cadastroPublicoService.solicitar(request);
+    public ResponseEntity<Map<String, String>> cadastro(@Valid @RequestBody CadastroRequest request, HttpServletRequest http) {
+        cadastroPublicoService.solicitar(request, http.getRemoteAddr());
         return ResponseEntity.accepted().body(Map.of("mensagem", "Se os dados forem válidos e ainda não estiverem cadastrados, a solicitação será analisada por um administrador. "
                 + "CPF, e-mail ou login já utilizados impedem um novo cadastro. Caso já tenha conta, tente entrar ou recuperar a senha. "
                 + "Se seu cadastro foi recusado ou você não conseguir prosseguir, contate um administrador para revisar o pedido e, quando cabível, liberar os dados para novo cadastro."));
     }
 
     @PostMapping("/recuperar-senha")
-    public RecuperarSenhaResponse recuperarSenha(@Valid @RequestBody RecuperarSenhaRequest request) {
-        return authService.solicitarRedefinicaoSenha(request);
+    public RecuperarSenhaResponse recuperarSenha(@Valid @RequestBody RecuperarSenhaRequest request, HttpServletRequest http) {
+        return authService.solicitarRedefinicaoSenha(request, http.getRemoteAddr());
     }
 
     @PostMapping("/redefinir-senha")
-    public Map<String, String> redefinirSenha(@Valid @RequestBody RedefinirSenhaRequest request) {
-        authService.redefinirSenha(request);
+    public Map<String, String> redefinirSenha(@Valid @RequestBody RedefinirSenhaRequest request, HttpServletRequest http) {
+        authService.redefinirSenha(request, http.getRemoteAddr());
         return Map.of("mensagem", "Senha redefinida com sucesso. Faca login com a nova senha.");
     }
 

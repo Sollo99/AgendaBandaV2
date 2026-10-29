@@ -1,5 +1,11 @@
 package br.com.fatec.agendabanda.repository;
 
+import br.com.fatec.agendabanda.exception.ConflitoException;
+
+import br.com.fatec.agendabanda.exception.RecursoNaoEncontradoException;
+
+import br.com.fatec.agendabanda.exception.RegraNegocioException;
+
 import br.com.fatec.agendabanda.dto.*;
 import br.com.fatec.agendabanda.security.SessaoUsuario;
 import org.springframework.dao.DataAccessException;
@@ -28,26 +34,51 @@ public class AgendaSqlRepository {
 
     public AgendaSqlRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
-    public List<AgendaDto> listar() {
-        var participacoes = listarParticipacoes(null).stream().collect(Collectors.groupingBy(ParticipacaoDto::codigoAgenda));
-        return jdbc.query("SELECT * FROM dbo.vw_agenda_detalhada ORDER BY dt_hora_in, codigo_agenda",
-                (rs, row) -> agenda(rs, participacoes.getOrDefault(rs.getInt("codigo_agenda"), List.of())));
+    public PaginaDto<AgendaDto> listar(int page, int size, java.time.LocalDate inicio, java.time.LocalDate fim) {
+        PaginaDto.validar(page, size);
+        if ((inicio != null && (inicio.getYear() < 1900 || inicio.getYear() > 9998))
+                || (fim != null && (fim.getYear() < 1900 || fim.getYear() > 9998))
+                || (inicio != null && fim != null && fim.isBefore(inicio))) {
+            throw new RegraNegocioException("Informe um período válido entre os anos 1900 e 9998.");
+        }
+        String filtro = " WHERE 1=1";
+        var args = new ArrayList<Object>();
+        if (inicio != null) { filtro += " AND dt_hora_in>=?"; args.add(Timestamp.valueOf(inicio.atStartOfDay())); }
+        if (fim != null) { filtro += " AND dt_hora_in<?"; args.add(Timestamp.valueOf(fim.plusDays(1).atStartOfDay())); }
+        Long total = jdbc.queryForObject("SELECT COUNT_BIG(*) FROM agenda" + filtro, Long.class, args.toArray());
+        args.add(page * size);
+        args.add(size);
+        var eventos = jdbc.query("SELECT * FROM dbo.vw_agenda_detalhada" + filtro
+                        + " ORDER BY dt_hora_in, codigo_agenda OFFSET ? ROWS FETCH NEXT ? ROWS ONLY",
+                (rs, row) -> agenda(rs, List.of()), args.toArray());
+        if (eventos.isEmpty()) return PaginaDto.de(List.of(), page, size, total == null ? 0 : total);
+        // Apenas os participantes da pagina, em uma consulta: nao ha consulta por evento.
+        String marcadores = eventos.stream().map(e -> "?").collect(Collectors.joining(","));
+        var grupos = jdbc.query(PARTICIPACOES + " WHERE p.codigo_agenda IN (" + marcadores + ") ORDER BY m.nome,mu.codigo",
+                this::participacao, eventos.stream().map(AgendaDto::codigoAgenda).toArray()).stream()
+                .collect(Collectors.groupingBy(ParticipacaoDto::codigoAgenda));
+        return PaginaDto.de(eventos.stream().map(e -> e.comParticipacoes(grupos.getOrDefault(e.codigoAgenda(), List.of()))).toList(),
+                page, size, total == null ? 0 : total);
     }
 
     public AgendaDto detalhar(Integer id) {
         var participacoes = listarParticipacoes(id);
         return jdbc.query("SELECT * FROM dbo.vw_agenda_detalhada WHERE codigo_agenda=?",
                 (rs, row) -> agenda(rs, participacoes), id).stream().findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Evento não encontrado."));
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Evento não encontrado."));
     }
 
     public List<ParticipacaoDto> listarParticipacoes(Integer id) {
         String sql = PARTICIPACOES + (id == null ? "" : " WHERE p.codigo_agenda=?") + " ORDER BY m.nome, mu.codigo";
         Object[] args = id == null ? new Object[0] : new Object[]{id};
-        return jdbc.query(sql, (rs, row) -> new ParticipacaoDto(rs.getInt("codigo_agenda"),
+        return jdbc.query(sql, this::participacao, args);
+    }
+
+    private ParticipacaoDto participacao(ResultSet rs, int row) throws SQLException {
+        return new ParticipacaoDto(rs.getInt("codigo_agenda"),
                 new MusicoResumoDto(rs.getInt("codigo"), rs.getString("nome"), rs.getString("instrumento")),
                 rs.getString("status_confirmacao"), rs.getObject("presente", Boolean.class),
-                data(rs, "data_resposta"), rs.getString("observacao")), args);
+                data(rs, "data_resposta"), rs.getString("observacao"));
     }
 
     public void validarConflitos(AgendaRequest request, Integer id) {
@@ -64,7 +95,7 @@ public class AgendaSqlRepository {
                 WHERE f.codigo_local=? OR f.cod_musico IN (SELECT CONVERT(INT,value) FROM OPENJSON(?))
                 """, (rs, row) -> rs.getString(1), Timestamp.valueOf(request.dataHoraInicio()),
                 Timestamp.valueOf(request.dataHoraFim()), id, request.localId(), jsonIds(ids == null ? List.of() : ids));
-        if (!conflitos.isEmpty()) throw new IllegalArgumentException("Conflito de horário com o evento: " + conflitos.get(0));
+        if (!conflitos.isEmpty()) throw new ConflitoException("Conflito de horário com o evento: " + conflitos.get(0));
     }
 
     public Integer criar(AgendaRequest r) {
@@ -83,7 +114,7 @@ public class AgendaSqlRepository {
         executar(() -> jdbc.update("EXEC dbo.usp_atualizar_participacao ?,?,?,?,?,?", agenda, musico,
                 nv(r.statusConfirmacao()), new SqlParameterValue(Types.BIT, r.presente()), nv(r.observacao()), propria));
         return listarParticipacoes(agenda).stream().filter(p -> p.musico().codigo().equals(musico)).findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Participação não encontrada."));
+                .orElseThrow(() -> new RecursoNaoEncontradoException("Participação não encontrada."));
     }
 
     public void excluir(Integer id, SessaoUsuario sessao) {
@@ -111,14 +142,14 @@ public class AgendaSqlRepository {
         recursos.forEach(this::bloquearRecurso);
         var eventos = jdbc.query("SELECT status,cod_membro_criador FROM agenda WITH (UPDLOCK,HOLDLOCK) WHERE codigo_agenda=?",
                 (rs, row) -> Map.entry(rs.getString("status"), rs.getInt("cod_membro_criador")), id);
-        if (eventos.isEmpty()) throw new IllegalArgumentException("Evento não encontrado.");
+        if (eventos.isEmpty()) throw new RecursoNaoEncontradoException("Evento não encontrado.");
         Boolean permitido = jdbc.queryForObject("""
                 SELECT CAST(CASE WHEN EXISTS (SELECT 1 FROM membros WHERE codigo=? AND ativo=1 AND status_cadastro=N'APROVADO'
                     AND (administrador=1 OR codigo=?)) THEN 1 ELSE 0 END AS BIT)
                 """, Boolean.class, sessao.codigo(), eventos.get(0).getValue());
         if (!Boolean.TRUE.equals(permitido)) throw new SecurityException("Apenas o criador ou um administrador pode excluir este evento.");
         if ("REALIZADO".equals(eventos.get(0).getKey()) || listarParticipacoes(id).stream().anyMatch(p -> p.presente() != null)) {
-            throw new IllegalArgumentException("Não é possível excluir um evento realizado ou com presença registrada.");
+            throw new RegraNegocioException("Não é possível excluir um evento realizado ou com presença registrada.");
         }
         // Complementa o historico do DELETE com os detalhes antes da cascata.
         String detalhes = jdbc.queryForObject("""
@@ -159,7 +190,7 @@ public class AgendaSqlRepository {
 
     private String jsonIds(List<Integer> ids) {
         if (ids == null) return null;
-        if (ids.stream().anyMatch(id -> id == null || id <= 0)) throw new IllegalArgumentException("Lista de músicos inválida.");
+        if (ids.stream().anyMatch(id -> id == null || id <= 0)) throw new RegraNegocioException("Lista de músicos inválida.");
         return ids.stream().distinct().map(String::valueOf).collect(Collectors.joining(",", "[", "]"));
     }
 
@@ -170,8 +201,9 @@ public class AgendaSqlRepository {
                 if (causa instanceof SQLException sql) {
                     for (SQLException erro = sql; erro != null; erro = erro.getNextException()) {
                         if (erro.getErrorCode() == 50004) throw new ConcurrencyFailureException("Recurso de agenda em uso. Aguarde e tente novamente.", ex);
-                        if (erro.getErrorCode() == 50003) throw new SecurityException(erro.getMessage());
-                        if (erro.getErrorCode() == 50001 || erro.getErrorCode() == 50002) throw new IllegalArgumentException(erro.getMessage());
+                        if (erro.getErrorCode() == 50003) throw new SecurityException("Operação não autorizada.");
+                        if (erro.getErrorCode() == 50002) throw new ConflitoException("Existe conflito de horário para o local ou para um dos músicos.");
+                        if (erro.getErrorCode() == 50001) throw MensagemSqlPublica.excecao(erro.getMessage());
                     }
                 }
             }

@@ -1,5 +1,9 @@
 package br.com.fatec.agendabanda.service;
 
+import br.com.fatec.agendabanda.exception.RecursoNaoEncontradoException;
+
+import br.com.fatec.agendabanda.exception.RegraNegocioException;
+
 import br.com.fatec.agendabanda.dto.CidadeDto;
 import br.com.fatec.agendabanda.dto.LocalDto;
 import br.com.fatec.agendabanda.dto.LocalRequest;
@@ -40,7 +44,7 @@ public class LocalService {
     }
 
     public LocalEvento buscarLocal(Integer id) {
-        return localRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Local não encontrado."));
+        return localRepository.findById(id).orElseThrow(() -> new RecursoNaoEncontradoException("Local não encontrado."));
     }
 
     @Transactional
@@ -62,13 +66,13 @@ public class LocalService {
         agendaSql.bloquearLocal(id);
         var local = buscarLocal(id);
         if (agendaRepository.existsByLocalCodigoLocal(id)) {
-            throw new IllegalArgumentException("O local está vinculado a eventos e não pode ser excluído. Altere o local desses eventos primeiro.");
+            throw new RegraNegocioException("O local está vinculado a eventos e não pode ser excluído. Altere o local desses eventos primeiro.");
         }
         localRepository.delete(local);
     }
 
     private void aplicar(LocalEvento local, LocalRequest request) {
-        var cidade = cidadeRepository.findById(request.cidadeId()).orElseThrow(() -> new IllegalArgumentException("Cidade não encontrada."));
+        var cidade = cidadeRepository.findById(request.cidadeId()).orElseThrow(() -> new RecursoNaoEncontradoException("Cidade não encontrada."));
         local.setNome(request.nome().trim());
         local.setEndereco(request.endereco().trim());
         local.setComplemento(request.complemento());

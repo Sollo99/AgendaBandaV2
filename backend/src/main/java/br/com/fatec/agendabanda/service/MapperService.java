@@ -17,9 +17,9 @@ public class MapperService {
     }
 
     public MembroDto membroDto(Membro membro) {
-        var musico = musicoRepository.findById(membro.getCodigo()).orElse(null);
-        var produtor = produtorRepository.findById(membro.getCodigo()).orElse(null);
         String perfil = membro.getPerfil();
+        var musico = "MUSICO".equals(perfil) ? musicoRepository.findById(membro.getCodigo()).orElse(null) : null;
+        var produtor = "PRODUTOR".equals(perfil) ? produtorRepository.findById(membro.getCodigo()).orElse(null) : null;
         return new MembroDto(
                 membro.getCodigo(), membro.getNome(), membro.getCpf(), membro.getEmail(), membro.getLogin(),
                 membro.getAdministrador(), membro.getAtivo(), perfil,
