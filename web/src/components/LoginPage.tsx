@@ -1,6 +1,6 @@
 import { SyntheticEvent, useEffect, useState } from "react";
 import { Box, Button, Card, Heading, Input, Stack, Text } from "@chakra-ui/react";
-import { api, ApiError } from "../api";
+import { api } from "../api";
 import { iniciarSessao } from "../sessao";
 import type { Membro } from "../types";
 
@@ -91,12 +91,6 @@ export default function LoginPage({ onLogin, mensagemInicial = "" }: { onLogin: 
       setSenha("");
       setModo("login");
     } catch (err) {
-      if (err instanceof ApiError && err.codigo === "RECUPERACAO_EXPIRADA") {
-        setCodigoInformado("");
-        setNovaSenha("");
-        setConfirmacaoSenha("");
-        setModo("recuperar");
-      }
       setErro(err instanceof Error ? err.message : "Não foi possível redefinir a senha.");
     } finally {
       setCarregando(false);

@@ -34,7 +34,6 @@ export default function PerfilPage({ usuario, onAtualizar }: { usuario: Membro; 
         encerrarSessao("Senha alterada. Entre novamente com a nova senha.");
         return;
       }
-      localStorage.setItem("usuario", JSON.stringify(atualizado));
       onAtualizar(atualizado);
       setForm({ ...form, senhaAtual: "", novaSenha: "" });
       setMensagem("Perfil atualizado com sucesso.");
