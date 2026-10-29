@@ -1,9 +1,9 @@
 # Java
-backend/target/
+target/
 
 # Node
 node_modules/
-web/dist/
+dist/
 
 # Testes locais
 __pycache__/
@@ -22,6 +22,8 @@ __tests__/
 
 # Environment
 .env
+.env.*
+!.env.example
 *.log
 
 # DOCS/Requisitos
@@ -30,8 +32,9 @@ RippedDOCS.docx
 
 # Planejamento local
 ETAPAS.md
-RELATORIO_ETAPAS_1_A_3.md
+RELATORIO_*.md
 
 # Packed
 *.tar
 AgendaBanda-fonte*.zip
+*.tmp
