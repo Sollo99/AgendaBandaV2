@@ -1,7 +1,8 @@
-import { SyntheticEvent, useState } from "react";
+import { SyntheticEvent, useEffect, useRef, useState } from "react";
 import { Box, Button, Card, Grid, HStack, Input, Stack, Text, Textarea } from "@chakra-ui/react";
 import { api } from "../api";
 import { eventoTerminou } from "../regrasEvento";
+import { inputDataHora, instanteSaoPaulo } from "../datas";
 import type { Agenda, Cidade, LocalEvento, MusicoResumo, TipoEvento } from "../types";
 
 type Props = {
@@ -14,18 +15,13 @@ type Props = {
   onCancel: () => void;
 };
 
-function toInputDate(value?: string) {
-  if (!value) return "";
-  return value.substring(0, 16);
-}
-
 export default function EventForm({ evento, locais, cidades, musicos, tiposEvento, onSaved, onCancel }: Props) {
-  const tipoPadrao = evento?.tipoEvento.codigoTipo ?? tiposEvento.find((tipo) => tipo.nome === "ENSAIO")?.codigoTipo ?? "";
+  const tipoPadrao = evento?.tipoEvento.codigoTipo ?? tiposEvento.find((tipo) => tipo.categoriaDetalhe === "ENSAIO")?.codigoTipo ?? "";
   const [form, setForm] = useState({
     titulo: evento?.titulo ?? "",
     descricao: evento?.descricao ?? "",
-    dataHoraInicio: toInputDate(evento?.dataHoraInicio),
-    dataHoraFim: toInputDate(evento?.dataHoraFim),
+    dataHoraInicio: inputDataHora(evento?.dataHoraInicio),
+    dataHoraFim: inputDataHora(evento?.dataHoraFim),
     localId: evento?.local.codigoLocal?.toString() ?? "",
     tipoEventoId: String(tipoPadrao),
     status: evento?.status ?? "AGENDADO",
@@ -36,6 +32,9 @@ export default function EventForm({ evento, locais, cidades, musicos, tiposEvent
     musicosIds: evento?.musicos.map((m) => String(m.codigo)) ?? []
   });
   const [erro, setErro] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const montado = useRef(true);
+  useEffect(() => { montado.current = true; return () => { montado.current = false; }; }, []);
 
   const tipoSelecionado = tiposEvento.find((tipo) => tipo.codigoTipo === Number(form.tipoEventoId))?.categoriaDetalhe ?? "EVENTO";
   // Permite remover participantes antigos que foram desativados e não estão mais na lista de novos músicos.
@@ -54,7 +53,13 @@ export default function EventForm({ evento, locais, cidades, musicos, tiposEvent
 
   async function salvar(e: SyntheticEvent) {
     e.preventDefault();
+    if (salvando) return;
     setErro("");
+    const inicio = instanteSaoPaulo(form.dataHoraInicio), fim = instanteSaoPaulo(form.dataHoraFim);
+    if (!Number.isFinite(inicio) || !Number.isFinite(fim) || fim <= inicio) {
+      setErro("Informe horários válidos de São Paulo, com término posterior ao início.");
+      return;
+    }
     if (form.status === "REALIZADO" && !eventoTerminou(form.dataHoraFim)) {
       setErro("Um evento só pode ser marcado como realizado após seu término.");
       return;
@@ -69,13 +74,14 @@ export default function EventForm({ evento, locais, cidades, musicos, tiposEvent
       musicosIds: form.musicosIds.map(Number)
     };
 
+    setSalvando(true);
     try {
       if (evento) await api.atualizarAgenda(evento.codigoAgenda, payload);
       else await api.criarAgenda(payload);
-      onSaved();
+      await onSaved();
     } catch (err) {
-      setErro(err instanceof Error ? err.message : "Erro ao salvar evento.");
-    }
+      if (montado.current) setErro(err instanceof Error ? err.message : "Erro ao salvar evento.");
+    } finally { if (montado.current) setSalvando(false); }
   }
 
   return (
@@ -111,7 +117,7 @@ export default function EventForm({ evento, locais, cidades, musicos, tiposEvent
 
           <Box><Text mb="2">Músicos participantes</Text><HStack wrap="wrap">{musicosDisponiveis.map((m) => <Button key={m.codigo} type="button" size="sm" variant={form.musicosIds.includes(String(m.codigo)) ? "solid" : "outline"} onClick={() => alternarMusico(String(m.codigo))}>{m.nome}</Button>)}</HStack></Box>
 
-          <HStack><Button type="submit">Salvar</Button><Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button></HStack>
+          <HStack><Button type="submit" loading={salvando}>Salvar</Button><Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button></HStack>
         </Stack>
       </Card.Body>
     </Card.Root>
