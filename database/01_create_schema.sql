@@ -217,7 +217,9 @@ CREATE TABLE participacao_evento (
 );
 GO
 
-CREATE INDEX ix_agenda_periodo ON agenda(dt_hora_in, dt_hora_fim) INCLUDE (codigo_local, status);
+CREATE INDEX ix_agenda_periodo ON agenda(dt_hora_in, codigo_agenda) INCLUDE (dt_hora_fim, codigo_local, status);
+CREATE INDEX ix_agenda_local_periodo ON agenda(codigo_local, dt_hora_in) INCLUDE (dt_hora_fim, status);
+CREATE INDEX ix_membros_nome_codigo ON membros(nome, codigo);
 CREATE INDEX ix_participacao_musico ON participacao_evento(cod_musico, codigo_agenda);
 GO
 
