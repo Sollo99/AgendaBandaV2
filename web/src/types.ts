@@ -109,3 +109,5 @@ export type HistoricoRegistro = {
   codigo: number; entidade: string; registro: string; operacao: string; dataHora: string;
   codigoResponsavel: number | null; responsavel: string | null; dadosAnteriores: string | null; dadosNovos: string | null;
 };
+export type Pagina<T> = { content: T[]; page: number; size: number; totalElements: number; totalPages: number };
+export type ParticipacaoAtualizacao = { statusConfirmacao?: ParticipacaoEvento["statusConfirmacao"]; presente?: boolean; observacao?: string };
