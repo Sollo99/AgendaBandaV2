@@ -59,7 +59,7 @@ export default function RelatoriosPage() {
   { eventos: 0, realizados: 0, agendados: 0, cancelados: 0 });
 
   return <Stack gap="5">
-    <Box><Heading size="lg">Relatórios</Heading><Text color="fg.muted">Eventos, presença dos músicos, utilização dos locais e histórico de alterações.</Text></Box>
+    <Box><Heading size="lg">Relatórios</Heading><Text color="fg.muted">Eventos, presença dos músicos, utilização dos locais e histórico de operações.</Text></Box>
     <HStack as="form" onSubmit={consultar} align="end" wrap="wrap">
       <Box><label htmlFor="relatorio-inicio">De</label><Input id="relatorio-inicio" type="date" min="1900-01-01" max="9998-12-31" required value={inicio} onChange={e => setInicio(e.target.value)} /></Box>
       <Box><label htmlFor="relatorio-fim">Até</label><Input id="relatorio-fim" type="date" min={inicio || "1900-01-01"} max="9998-12-31" required value={fim} onChange={e => setFim(e.target.value)} /></Box>
@@ -89,9 +89,9 @@ export default function RelatoriosPage() {
           {relatorio.locais.map(r => <tr key={r.codigoLocal}><td>{r.nome}</td><td>{r.cidade}/{r.uf}</td><td>{r.eventos}</td><td>{r.agendados}</td><td>{r.realizados}</td><td>{r.cancelados}</td><td>{(r.minutosProgramados / 60).toFixed(1)}</td></tr>)}
         </Tabela>
       </Card.Body></Card.Root>
-      <Card.Root><Card.Body><Heading size="md" mb="3">Histórico de alterações</Heading>
+      <Card.Root><Card.Body><Heading size="md" mb="3">Histórico de operações</Heading>
         <Text color="fg.muted" mb="3">Últimos 100 registros pela data da operação no período selecionado. Abra um registro para comparar os dados.</Text>
-        {!historicos.length && <Text>Nenhuma alteração registrada neste período.</Text>}
+        {!historicos.length && <Text>Nenhuma operação registrada neste período.</Text>}
         <Stack gap="3">{historicos.map(h => <Box key={`${h.entidade}:${h.codigo}`} borderWidth="1px" borderRadius="md" p="3">
           <details><summary>{formatarDataHora(h.dataHora)} · {h.entidade} #{h.registro} · {h.operacao}</summary>
             <Text my="2">Responsável: {h.responsavel ?? "Sem usuário autenticado"}{h.codigoResponsavel ? ` (#${h.codigoResponsavel})` : ""}</Text>

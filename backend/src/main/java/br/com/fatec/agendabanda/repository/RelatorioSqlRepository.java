@@ -52,13 +52,7 @@ public class RelatorioSqlRepository {
 
     public List<Historico> historicos(LocalDateTime inicio, LocalDateTime fim) {
         return jdbc.query("""
-                SELECT TOP (100) h.*,m.nome AS responsavel FROM (
-                    SELECT codigo_historico AS codigo,N'AGENDA' AS entidade,CONVERT(NVARCHAR(100),codigo_agenda) AS registro,
-                        tipo_operacao AS operacao,data_hora,membro_responsavel,dados_anteriores,dados_novos FROM historico_eventos
-                    UNION ALL
-                    SELECT codigo_operacao,entidade_afetada,codigo_registro_afetado,tipo_operacao,
-                        data_hora,membro_responsavel,dados_anteriores,dados_novos FROM historico_operacoes
-                ) h LEFT JOIN membros m ON m.codigo=h.membro_responsavel
+                SELECT TOP (100) h.* FROM dbo.vw_historico_unificado h
                 WHERE h.data_hora>=:inicio AND h.data_hora<:fim
                 ORDER BY h.data_hora DESC,h.codigo DESC,h.entidade
                 """, periodo(inicio, fim), (rs, row) -> new Historico(rs.getLong("codigo"), rs.getString("entidade"),
