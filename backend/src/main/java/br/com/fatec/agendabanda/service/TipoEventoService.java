@@ -20,11 +20,13 @@ public class TipoEventoService {
     private final TipoEventoRepository tipoEventoRepository;
     private final AgendaRepository agendaRepository;
     private final MapperService mapper;
+    private final AuditoriaContexto auditoria;
 
-    public TipoEventoService(TipoEventoRepository tipoEventoRepository, AgendaRepository agendaRepository, MapperService mapper) {
+    public TipoEventoService(TipoEventoRepository tipoEventoRepository, AgendaRepository agendaRepository, MapperService mapper, AuditoriaContexto auditoria) {
         this.tipoEventoRepository = tipoEventoRepository;
         this.agendaRepository = agendaRepository;
         this.mapper = mapper;
+        this.auditoria = auditoria;
     }
 
     @Transactional(readOnly = true)
@@ -39,6 +41,7 @@ public class TipoEventoService {
 
     @Transactional
     public TipoEventoDto criar(TipoEventoRequest request) {
+        auditoria.prepararDoRequest();
         var tipo = new TipoEvento();
         aplicar(tipo, request, null);
         return mapper.tipoEventoDto(tipoEventoRepository.save(tipo));
@@ -46,6 +49,7 @@ public class TipoEventoService {
 
     @Transactional
     public TipoEventoDto atualizar(Integer id, TipoEventoRequest request) {
+        auditoria.prepararDoRequest();
         var tipo = buscar(id);
         boolean tipoEmUso = agendaRepository.existsByTipoEventoCodigoTipo(id);
         if (tipoEmUso && !tipo.getNome().equalsIgnoreCase(request.nome().trim())) {
@@ -63,6 +67,7 @@ public class TipoEventoService {
 
     @Transactional
     public void excluir(Integer id) {
+        auditoria.prepararDoRequest();
         buscar(id);
         if (agendaRepository.existsByTipoEventoCodigoTipo(id)) {
             throw new RegraNegocioException("O tipo está vinculado a eventos e não pode ser excluído.");

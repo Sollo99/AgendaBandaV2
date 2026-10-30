@@ -22,12 +22,14 @@ public class CidadeService {
     private final LocalEventoRepository localRepository;
     private final ShowEventoRepository showRepository;
     private final MapperService mapper;
+    private final AuditoriaContexto auditoria;
 
-    public CidadeService(CidadeRepository cidadeRepository, LocalEventoRepository localRepository, ShowEventoRepository showRepository, MapperService mapper) {
+    public CidadeService(CidadeRepository cidadeRepository, LocalEventoRepository localRepository, ShowEventoRepository showRepository, MapperService mapper, AuditoriaContexto auditoria) {
         this.cidadeRepository = cidadeRepository;
         this.localRepository = localRepository;
         this.showRepository = showRepository;
         this.mapper = mapper;
+        this.auditoria = auditoria;
     }
 
     @Transactional(readOnly = true)
@@ -37,6 +39,7 @@ public class CidadeService {
 
     @Transactional
     public CidadeDto criar(CidadeRequest request) {
+        auditoria.prepararDoRequest();
         var cidade = new Cidade();
         aplicar(cidade, request, null);
         return mapper.cidadeDto(cidadeRepository.save(cidade));
@@ -44,6 +47,7 @@ public class CidadeService {
 
     @Transactional
     public CidadeDto atualizar(Integer id, CidadeRequest request) {
+        auditoria.prepararDoRequest();
         var cidade = buscar(id);
         aplicar(cidade, request, id);
         return mapper.cidadeDto(cidadeRepository.save(cidade));
@@ -51,6 +55,7 @@ public class CidadeService {
 
     @Transactional
     public void excluir(Integer id) {
+        auditoria.prepararDoRequest();
         buscar(id);
         if (localRepository.existsByCidadeCodigoCidade(id) || showRepository.existsByCidadeCodigoCidade(id)) {
             throw new RegraNegocioException("A cidade está vinculada a locais ou shows e não pode ser excluída.");

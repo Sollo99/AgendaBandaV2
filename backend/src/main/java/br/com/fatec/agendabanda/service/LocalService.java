@@ -2,16 +2,13 @@ package br.com.fatec.agendabanda.service;
 
 import br.com.fatec.agendabanda.exception.RecursoNaoEncontradoException;
 
-import br.com.fatec.agendabanda.exception.RegraNegocioException;
-
 import br.com.fatec.agendabanda.dto.CidadeDto;
 import br.com.fatec.agendabanda.dto.LocalDto;
 import br.com.fatec.agendabanda.dto.LocalRequest;
 import br.com.fatec.agendabanda.model.LocalEvento;
 import br.com.fatec.agendabanda.repository.CidadeRepository;
 import br.com.fatec.agendabanda.repository.LocalEventoRepository;
-import br.com.fatec.agendabanda.repository.AgendaRepository;
-import br.com.fatec.agendabanda.repository.AgendaSqlRepository;
+import br.com.fatec.agendabanda.repository.LocalSqlRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,15 +19,15 @@ public class LocalService {
     private final LocalEventoRepository localRepository;
     private final CidadeRepository cidadeRepository;
     private final MapperService mapper;
-    private final AgendaRepository agendaRepository;
-    private final AgendaSqlRepository agendaSql;
+    private final LocalSqlRepository localSql;
+    private final AuditoriaContexto auditoria;
 
-    public LocalService(LocalEventoRepository localRepository, CidadeRepository cidadeRepository, MapperService mapper, AgendaRepository agendaRepository, AgendaSqlRepository agendaSql) {
+    public LocalService(LocalEventoRepository localRepository, CidadeRepository cidadeRepository, MapperService mapper, LocalSqlRepository localSql, AuditoriaContexto auditoria) {
         this.localRepository = localRepository;
         this.cidadeRepository = cidadeRepository;
         this.mapper = mapper;
-        this.agendaRepository = agendaRepository;
-        this.agendaSql = agendaSql;
+        this.localSql = localSql;
+        this.auditoria = auditoria;
     }
 
     @Transactional(readOnly = true)
@@ -49,6 +46,7 @@ public class LocalService {
 
     @Transactional
     public LocalDto criar(LocalRequest request) {
+        auditoria.prepararDoRequest();
         var local = new LocalEvento();
         aplicar(local, request);
         return mapper.localDto(localRepository.save(local));
@@ -56,6 +54,7 @@ public class LocalService {
 
     @Transactional
     public LocalDto atualizar(Integer id, LocalRequest request) {
+        auditoria.prepararDoRequest();
         var local = buscarLocal(id);
         aplicar(local, request);
         return mapper.localDto(localRepository.save(local));
@@ -63,12 +62,8 @@ public class LocalService {
 
     @Transactional
     public void excluir(Integer id) {
-        agendaSql.bloquearLocal(id);
-        var local = buscarLocal(id);
-        if (agendaRepository.existsByLocalCodigoLocal(id)) {
-            throw new RegraNegocioException("O local está vinculado a eventos e não pode ser excluído. Altere o local desses eventos primeiro.");
-        }
-        localRepository.delete(local);
+        auditoria.prepararDoRequest();
+        localSql.excluir(id);
     }
 
     private void aplicar(LocalEvento local, LocalRequest request) {
