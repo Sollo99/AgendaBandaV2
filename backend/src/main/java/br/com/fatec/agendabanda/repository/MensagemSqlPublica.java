@@ -25,11 +25,19 @@ final class MensagemSqlPublica {
             "A confirmacao so pode ser alterada antes do inicio de um evento agendado.",
             "Presenca ou ausencia so pode ser registrada apos o inicio de evento nao cancelado.",
             "Participacao nao encontrada.",
-            "Um participante presente deve permanecer confirmado.");
+            "Um participante presente deve permanecer confirmado.",
+            "Nao e possivel excluir um evento realizado ou com presenca registrada.",
+            "Membro nao encontrado.",
+            "O cadastro precisa ser aprovado antes de ativar a conta ou conceder administracao.",
+            "E necessario manter pelo menos um administrador ativo.",
+            "O cadastro ja foi analisado.",
+            "Os identificadores foram liberados. E necessario fazer um novo cadastro.",
+            "Somente cadastros recusados podem ter identificadores liberados.",
+            "O local esta vinculado a eventos e nao pode ser excluido.");
 
     static IllegalArgumentException excecao(String mensagem) {
-        if (mensagem == null || !PERMITIDAS.contains(mensagem)) return new RegraNegocioException("Dados incompatíveis com as regras do evento.");
-        if (mensagem.equals("Evento nao encontrado.") || mensagem.equals("Participacao nao encontrada."))
+        if (mensagem == null || !PERMITIDAS.contains(mensagem)) return new RegraNegocioException("Dados incompatíveis com as regras da operação.");
+        if (mensagem.equals("Evento nao encontrado.") || mensagem.equals("Participacao nao encontrada.") || mensagem.equals("Membro nao encontrado.") || mensagem.equals("Local nao encontrado."))
             return new RecursoNaoEncontradoException(mensagem);
         return new RegraNegocioException(mensagem);
     }

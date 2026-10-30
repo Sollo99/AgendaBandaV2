@@ -48,7 +48,7 @@ public class AgendaService {
     @Transactional
     public void excluir(Integer id, SessaoUsuario sessao) {
         auditoria.preparar(sessao.codigo());
-        repository.excluir(id, sessao);
+        repository.excluir(id);
     }
 
     private void validarPeriodo(AgendaRequest request) {

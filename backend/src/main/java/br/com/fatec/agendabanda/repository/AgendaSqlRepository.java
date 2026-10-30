@@ -1,26 +1,25 @@
 package br.com.fatec.agendabanda.repository;
 
-import br.com.fatec.agendabanda.exception.ConflitoException;
-
 import br.com.fatec.agendabanda.exception.RecursoNaoEncontradoException;
+import br.com.fatec.agendabanda.exception.ConflitoException;
 
 import br.com.fatec.agendabanda.exception.RegraNegocioException;
 
 import br.com.fatec.agendabanda.dto.*;
-import br.com.fatec.agendabanda.security.SessaoUsuario;
-import org.springframework.dao.DataAccessException;
 import org.springframework.dao.ConcurrencyFailureException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.SqlParameterValue;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import static br.com.fatec.agendabanda.repository.ExecucaoSql.executar;
 
 @Repository
 public class AgendaSqlRepository {
@@ -117,8 +116,9 @@ public class AgendaSqlRepository {
                 .orElseThrow(() -> new RecursoNaoEncontradoException("Participação não encontrada."));
     }
 
-    public void excluir(Integer id, SessaoUsuario sessao) {
-        executar(() -> { excluirComLocks(id, sessao); return null; });
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void excluir(Integer id) {
+        executar(() -> jdbc.queryForObject("EXEC dbo.usp_excluir_evento ?", Integer.class, id));
     }
 
     public void bloquearLocal(Integer id) { bloquearRecurso("AgendaBanda:local:" + id); }
@@ -126,44 +126,13 @@ public class AgendaSqlRepository {
     private void bloquearRecurso(String recurso) {
         Integer resultado = jdbc.queryForObject("""
                 DECLARE @resultado INT;
+                DECLARE @iniciar_transacao INT;
+                IF @@TRANCOUNT=0 AND (2 & @@OPTIONS)=2
+                    SELECT TOP (1) @iniciar_transacao=codigo FROM membros;
                 EXEC @resultado = sys.sp_getapplock @Resource=?, @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=5000;
                 SELECT @resultado;
                 """, Integer.class, recurso);
         if (resultado == null || resultado < 0) throw new ConcurrencyFailureException("Recurso de agenda em uso. Tente novamente.");
-    }
-
-    private void excluirComLocks(Integer id, SessaoUsuario sessao) {
-        bloquearRecurso("AgendaBanda:evento:" + id);
-        var recursos = new TreeSet<String>();
-        jdbc.queryForList("SELECT codigo_local FROM agenda WHERE codigo_agenda=?", Integer.class, id)
-                .forEach(local -> recursos.add("AgendaBanda:local:" + local));
-        jdbc.queryForList("SELECT cod_musico FROM participacao_evento WHERE codigo_agenda=?", Integer.class, id)
-                .forEach(musico -> recursos.add("AgendaBanda:musico:" + musico));
-        recursos.forEach(this::bloquearRecurso);
-        var eventos = jdbc.query("SELECT status,cod_membro_criador FROM agenda WITH (UPDLOCK,HOLDLOCK) WHERE codigo_agenda=?",
-                (rs, row) -> Map.entry(rs.getString("status"), rs.getInt("cod_membro_criador")), id);
-        if (eventos.isEmpty()) throw new RecursoNaoEncontradoException("Evento não encontrado.");
-        Boolean permitido = jdbc.queryForObject("""
-                SELECT CAST(CASE WHEN EXISTS (SELECT 1 FROM membros WHERE codigo=? AND ativo=1 AND status_cadastro=N'APROVADO'
-                    AND (administrador=1 OR codigo=?)) THEN 1 ELSE 0 END AS BIT)
-                """, Boolean.class, sessao.codigo(), eventos.get(0).getValue());
-        if (!Boolean.TRUE.equals(permitido)) throw new SecurityException("Apenas o criador ou um administrador pode excluir este evento.");
-        if ("REALIZADO".equals(eventos.get(0).getKey()) || listarParticipacoes(id).stream().anyMatch(p -> p.presente() != null)) {
-            throw new RegraNegocioException("Não é possível excluir um evento realizado ou com presença registrada.");
-        }
-        // Complementa o historico do DELETE com os detalhes antes da cascata.
-        String detalhes = jdbc.queryForObject("""
-                SELECT (SELECT e.repertorio,e.observacao,r.pauta,s.codigo_cidade FROM agenda a
-                LEFT JOIN ensaios e ON e.codigo_agenda=a.codigo_agenda
-                LEFT JOIN reunioes r ON r.codigo_agenda=a.codigo_agenda LEFT JOIN shows s ON s.codigo_agenda=a.codigo_agenda
-                WHERE a.codigo_agenda=? FOR JSON PATH, INCLUDE_NULL_VALUES, WITHOUT_ARRAY_WRAPPER) AS detalhes
-                """, String.class, id);
-        Long limite = jdbc.queryForObject("SELECT COALESCE(MAX(codigo_historico),0) FROM historico_eventos", Long.class);
-        jdbc.update("DELETE FROM agenda WHERE codigo_agenda=?", id);
-        jdbc.update("""
-                UPDATE historico_eventos SET dados_anteriores=JSON_MODIFY(dados_anteriores,'$.detalhes',JSON_QUERY(?))
-                WHERE codigo_agenda=? AND codigo_historico>?
-                """, nv(detalhes), id, limite);
     }
 
     private AgendaDto agenda(ResultSet rs, List<ParticipacaoDto> participacoes) throws SQLException {
@@ -194,20 +163,4 @@ public class AgendaSqlRepository {
         return ids.stream().distinct().map(String::valueOf).collect(Collectors.joining(",", "[", "]"));
     }
 
-    private <T> T executar(Supplier<T> operacao) {
-        try { return operacao.get(); }
-        catch (DataAccessException ex) {
-            for (Throwable causa = ex; causa != null; causa = causa.getCause()) {
-                if (causa instanceof SQLException sql) {
-                    for (SQLException erro = sql; erro != null; erro = erro.getNextException()) {
-                        if (erro.getErrorCode() == 50004) throw new ConcurrencyFailureException("Recurso de agenda em uso. Aguarde e tente novamente.", ex);
-                        if (erro.getErrorCode() == 50003) throw new SecurityException("Operação não autorizada.");
-                        if (erro.getErrorCode() == 50002) throw new ConflitoException("Existe conflito de horário para o local ou para um dos músicos.");
-                        if (erro.getErrorCode() == 50001) throw MensagemSqlPublica.excecao(erro.getMessage());
-                    }
-                }
-            }
-            throw ex;
-        }
-    }
 }
