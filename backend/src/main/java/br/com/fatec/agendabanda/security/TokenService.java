@@ -1,7 +1,8 @@
 package br.com.fatec.agendabanda.security;
 
 import br.com.fatec.agendabanda.model.SessaoPersistida;
-import br.com.fatec.agendabanda.repository.MembroRepository;
+import br.com.fatec.agendabanda.repository.SessaoSqlRepository;
+import br.com.fatec.agendabanda.repository.ManutencaoSqlRepository;
 import br.com.fatec.agendabanda.repository.SessaoPersistidaRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Service;
@@ -22,12 +23,14 @@ import java.util.UUID;
 public class TokenService {
     private static final int DURACAO_HORAS = 8;
     private final SessaoPersistidaRepository sessaoRepository;
-    private final MembroRepository membroRepository;
+    private final SessaoSqlRepository consultas;
+    private final ManutencaoSqlRepository manutencao;
     private final Clock clock;
 
-    public TokenService(SessaoPersistidaRepository sessaoRepository, MembroRepository membroRepository, Clock clock) {
+    public TokenService(SessaoPersistidaRepository sessaoRepository, SessaoSqlRepository consultas, ManutencaoSqlRepository manutencao, Clock clock) {
         this.sessaoRepository = sessaoRepository;
-        this.membroRepository = membroRepository;
+        this.consultas = consultas;
+        this.manutencao = manutencao;
         this.clock = clock;
     }
 
@@ -46,10 +49,7 @@ public class TokenService {
     @Transactional
     public Optional<SessaoUsuario> buscarSessao(String token) {
         if (token == null || token.isBlank()) return Optional.empty();
-        return sessaoRepository.findByTokenHashAndExpiraEmAfter(hash(token), LocalDateTime.now(clock))
-                .flatMap(item -> membroRepository.findById(item.getCodigoMembro())
-                        .filter(membro -> Boolean.TRUE.equals(membro.getAtivo()) && "APROVADO".equals(membro.getStatusCadastro()))
-                        .map(membro -> new SessaoUsuario(membro.getCodigo(), membro.getNome(), membro.getLogin(), Boolean.TRUE.equals(membro.getAdministrador()))));
+        return consultas.buscarAtiva(hash(token), LocalDateTime.now(clock));
     }
 
     @Transactional
@@ -66,7 +66,7 @@ public class TokenService {
             fixedDelayString = "${app.auth.sessao.varredura-ms:60000}")
     @Transactional
     public int limparSessoesExpiradas() {
-        return sessaoRepository.excluirVencidas(LocalDateTime.now(clock));
+        return manutencao.limparSessoes(LocalDateTime.now(clock));
     }
 
     public String extrairToken(HttpServletRequest request) {
