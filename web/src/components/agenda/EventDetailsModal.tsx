@@ -15,7 +15,7 @@ export default function EventDetailsModal({ evento, usuario, onClose, onEdit, on
               <Flex justify="space-between" align="flex-start" gap="4">
                 <Box>
                   <Badge style={{ background: (tiposEvento[evento.tipoEspecifico] ?? tiposEvento.EVENTO).cor, color: "white" }}>
-                    {tiposEvento[evento.tipoEspecifico]?.nome ?? evento.tipoEvento.nome}
+                    {evento.tipoEvento.nome}
                   </Badge>
                   <Heading size="md" mt="3">{evento.titulo}</Heading>
                   <Text color="fg.muted">{formatarDataHora(evento.dataHoraInicio)} até {formatarDataHora(evento.dataHoraFim)}</Text>

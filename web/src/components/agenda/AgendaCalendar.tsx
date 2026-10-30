@@ -96,7 +96,7 @@ export default function AgendaCalendar({ eventos, mesAtual, hoje, onMes, onSelec
                       >
                         <Box overflow="hidden">
                           <Text fontSize="xs" fontWeight="bold" truncate>{formatarHorario(evento.dataHoraInicio)} {evento.titulo}</Text>
-                          <Text fontSize="2xs" color="fg.muted" truncate>{tipo.nome}</Text>
+                          <Text fontSize="2xs" color="fg.muted" truncate>{evento.tipoEvento.nome}</Text>
                         </Box>
                       </Button>
                     );
