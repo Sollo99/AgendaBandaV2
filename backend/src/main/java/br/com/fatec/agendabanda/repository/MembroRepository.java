@@ -38,6 +38,9 @@ public interface MembroRepository extends JpaRepository<Membro, Integer> {
     @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
     @Query(value = """
         DECLARE @resultado INT;
+        DECLARE @iniciar_transacao INT;
+        IF @@TRANCOUNT=0 AND (2 & @@OPTIONS)=2
+            SELECT TOP (1) @iniciar_transacao=codigo FROM membros;
         EXEC @resultado = sys.sp_getapplock @Resource=N'AgendaBanda:administradores',
             @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=5000;
         SELECT @resultado;

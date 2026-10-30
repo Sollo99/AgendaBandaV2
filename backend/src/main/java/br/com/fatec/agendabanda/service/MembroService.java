@@ -9,10 +9,10 @@ import br.com.fatec.agendabanda.model.Membro;
 import br.com.fatec.agendabanda.model.Musico;
 import br.com.fatec.agendabanda.model.Produtor;
 import br.com.fatec.agendabanda.repository.MembroRepository;
+import br.com.fatec.agendabanda.repository.MembroSqlRepository;
 import br.com.fatec.agendabanda.repository.MusicoRepository;
 import br.com.fatec.agendabanda.repository.ProdutorRepository;
 import br.com.fatec.agendabanda.repository.ParticipacaoEventoRepository;
-import br.com.fatec.agendabanda.security.TokenService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +25,7 @@ import java.util.Locale;
 @Service
 public class MembroService {
     private final MembroRepository membroRepository;
+    private final MembroSqlRepository membroSql;
     private final MusicoRepository musicoRepository;
     private final ProdutorRepository produtorRepository;
     private final BCryptPasswordEncoder passwordEncoder;
@@ -32,15 +33,15 @@ public class MembroService {
     private final ParticipacaoEventoRepository participacaoRepository;
     private final SenhaMembroService senhas;
     private final ValidadorMembro validador;
-    private final TokenService tokenService;
     private final Clock clock;
     private final AuditoriaContexto auditoria;
 
     public MembroService(MembroRepository membroRepository, MusicoRepository musicoRepository, ProdutorRepository produtorRepository,
                          BCryptPasswordEncoder passwordEncoder, MapperService mapperService,
                          ParticipacaoEventoRepository participacaoRepository, SenhaMembroService senhas, ValidadorMembro validador,
-                         TokenService tokenService, Clock clock, AuditoriaContexto auditoria) {
+                         Clock clock, AuditoriaContexto auditoria, MembroSqlRepository membroSql) {
         this.membroRepository = membroRepository;
+        this.membroSql = membroSql;
         this.musicoRepository = musicoRepository;
         this.produtorRepository = produtorRepository;
         this.passwordEncoder = passwordEncoder;
@@ -48,7 +49,6 @@ public class MembroService {
         this.participacaoRepository = participacaoRepository;
         this.senhas = senhas;
         this.validador = validador;
-        this.tokenService = tokenService;
         this.clock = clock;
         this.auditoria = auditoria;
     }
@@ -80,6 +80,8 @@ public class MembroService {
         var membro = new Membro();
         validador.validarUnicidade(request.cpf(), request.email(), request.login(), null);
         aplicarDados(membro, request);
+        membro.setAdministrador(Boolean.TRUE.equals(request.administrador()));
+        membro.setAtivo(request.ativo() == null || request.ativo());
         membro.setSenha(passwordEncoder.encode(request.senha()));
         membro.setCriadoEm(LocalDateTime.now(clock));
         var salvo = membroRepository.save(membro);
@@ -90,15 +92,11 @@ public class MembroService {
     @Transactional
     public MembroDto atualizar(Integer id, MembroRequest request) {
         auditoria.prepararDoRequest();
-        var administradores = membroRepository.bloquearAdministradoresAtivos();
+        // SQL altera acesso antes de carregar a entidade JPA, evitando estado antigo no contexto.
+        // Se outra validacao falhar, toda a transacao (inclusive a procedure) sofre rollback.
+        membroSql.alterarAcesso(id, Boolean.TRUE.equals(request.administrador()), request.ativo() == null || request.ativo());
         var membro = buscarParaAtualizar(id);
         exigirIdentificadoresReservados(membro);
-        protegerUltimoAdministrador(membro, Boolean.TRUE.equals(request.administrador()),
-                request.ativo() == null || request.ativo(), administradores);
-        if (!"APROVADO".equals(membro.getStatusCadastro())
-                && (Boolean.TRUE.equals(request.administrador()) || request.ativo() == null || request.ativo())) {
-            throw new RegraNegocioException("Analise o cadastro antes de ativar a conta ou conceder administração.");
-        }
         validador.validarUnicidade(request.cpf(), request.email(), request.login(), id);
         aplicarDados(membro, request);
         if (request.senha() != null && !request.senha().isBlank()) {
@@ -112,14 +110,8 @@ public class MembroService {
     @Transactional
     public MembroDto alterarStatus(Integer id, boolean ativo) {
         auditoria.prepararDoRequest();
-        var administradores = membroRepository.bloquearAdministradoresAtivos();
-        var membro = buscarParaAtualizar(id);
-        if (ativo && !"APROVADO".equals(membro.getStatusCadastro())) {
-            throw new RegraNegocioException("O cadastro precisa ser aprovado antes da ativação.");
-        }
-        protegerUltimoAdministrador(membro, Boolean.TRUE.equals(membro.getAdministrador()), ativo, administradores);
-        membro.setAtivo(ativo);
-        return mapperService.membroDto(membroRepository.save(membro));
+        membroSql.alterarAcesso(id, null, ativo);
+        return mapperService.membroDto(buscarParaAtualizar(id));
     }
 
     @Transactional
@@ -152,42 +144,17 @@ public class MembroService {
 
     @Transactional
     public MembroDto decidirCadastro(Integer id, boolean aprovada, Integer codigoAdministrador) {
-        auditoria.prepararDoRequest();
-        if (membroRepository.bloquearAdministradoresAtivos().stream().noneMatch(m -> m.getCodigo().equals(codigoAdministrador))) {
-            throw new SecurityException("Apenas administradores ativos podem analisar cadastros.");
-        }
-        var membro = buscarParaAtualizar(id);
-        if ("APROVADO".equals(membro.getStatusCadastro()) || (!aprovada && "RECUSADO".equals(membro.getStatusCadastro()))) {
-            throw new RegraNegocioException("O cadastro já foi analisado.");
-        }
-        exigirIdentificadoresReservados(membro);
-        membro.setStatusCadastro(aprovada ? "APROVADO" : "RECUSADO");
-        membro.setAtivo(aprovada);
-        membro.setAdministrador(false);
-        membro.setCadastroDecididoEm(LocalDateTime.now(clock));
-        membro.setCadastroDecididoPor(codigoAdministrador);
-        return mapperService.membroDto(membroRepository.save(membro));
+        auditoria.preparar(codigoAdministrador);
+        membroSql.decidirCadastro(id, aprovada, LocalDateTime.now(clock));
+        return mapperService.membroDto(buscarParaAtualizar(id));
     }
 
     @Transactional
     public MembroDto liberarIdentificadores(Integer id, Integer codigoAdministrador) {
-        auditoria.prepararDoRequest();
-        if (membroRepository.bloquearAdministradoresAtivos().stream().noneMatch(m -> m.getCodigo().equals(codigoAdministrador))) {
-            throw new SecurityException("Apenas administradores ativos podem liberar identificadores.");
-        }
-        var membro = buscarParaAtualizar(id);
-        if (!"RECUSADO".equals(membro.getStatusCadastro())) {
-            throw new RegraNegocioException("Somente cadastros recusados podem ter seus identificadores liberados.");
-        }
-        if (membro.getIdentificadoresLiberadosEm() != null) return mapperService.membroDto(membro);
-        membro.setCpf(null);
-        membro.setEmail(null);
-        membro.setLogin(null);
-        membro.setSenha(passwordEncoder.encode(java.util.UUID.randomUUID().toString()));
-        membro.setIdentificadoresLiberadosEm(LocalDateTime.now(clock));
-        membro.setIdentificadoresLiberadosPor(codigoAdministrador);
-        tokenService.removerSessoesDoMembro(id);
-        return mapperService.membroDto(membroRepository.saveAndFlush(membro));
+        auditoria.preparar(codigoAdministrador);
+        String senhaInutilizavel = passwordEncoder.encode(java.util.UUID.randomUUID().toString());
+        membroSql.liberarIdentificadores(id, senhaInutilizavel, LocalDateTime.now(clock));
+        return mapperService.membroDto(buscarParaAtualizar(id));
     }
 
     private void exigirIdentificadoresReservados(Membro membro) {
@@ -205,8 +172,6 @@ public class MembroService {
         membro.setCpf(ValidadorMembro.normalizarCpf(request.cpf()));
         membro.setEmail(request.email().trim());
         membro.setLogin(request.login().trim());
-        membro.setAdministrador(Boolean.TRUE.equals(request.administrador()));
-        membro.setAtivo(request.ativo() == null || request.ativo());
     }
 
     private void salvarPerfil(Membro membro, MembroRequest request) {
@@ -248,14 +213,6 @@ public class MembroService {
             throw new RegraNegocioException("O músico possui participações em eventos. Desative o membro em vez de remover seu perfil de músico.");
         }
     }
-
-    private void protegerUltimoAdministrador(Membro membro, boolean administrador, boolean ativo, List<Membro> administradoresAtivos) {
-        if (Boolean.TRUE.equals(membro.getAdministrador()) && Boolean.TRUE.equals(membro.getAtivo())
-                && (!administrador || !ativo) && administradoresAtivos.size() <= 1) {
-            throw new RegraNegocioException("É necessário manter pelo menos um administrador ativo. Cadastre ou ative outro administrador primeiro.");
-        }
-    }
-
 
     private String textoOuPadrao(String valor) {
         return valor == null || valor.isBlank() ? "Não informado" : valor.trim();
