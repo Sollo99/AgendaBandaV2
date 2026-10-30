@@ -16,21 +16,44 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.LoggerFactory;
 import java.util.Map;
+import br.com.fatec.agendabanda.service.AuditoriaAutenticacaoService;
+import br.com.fatec.agendabanda.security.EventoAutenticacao;
+import br.com.fatec.agendabanda.security.EventoAutenticacao.Motivo;
+import br.com.fatec.agendabanda.security.EventoAutenticacao.Recurso;
+import br.com.fatec.agendabanda.security.SessaoUsuario;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    private final AuditoriaAutenticacaoService auditoria;
+
+    public ApiExceptionHandler(AuditoriaAutenticacaoService auditoria) { this.auditoria=auditoria; }
+
+    private Recurso recurso() {
+        return RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attrs
+                ? EventoAutenticacao.recursoDaRota(attrs.getRequest().getRequestURI()) : Recurso.API;
+    }
+
+    private Integer membroAutenticado() {
+        if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attrs
+                && attrs.getRequest().getAttribute("sessao") instanceof SessaoUsuario sessao) return sessao.codigo();
+        return null;
+    }
     private ResponseEntity<Map<String, String>> resposta(HttpStatus status, String codigo, String mensagem) {
         return ResponseEntity.status(status).body(Map.of("erro", mensagem, "codigo", codigo));
     }
 
     @ExceptionHandler(LimiteAutenticacaoException.class)
     public ResponseEntity<Map<String, String>> limiteAutenticacao(LimiteAutenticacaoException ex) {
+        auditoria.limitar(recurso());
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).header("Retry-After", Long.toString(ex.getSegundos()))
                 .body(Map.of("erro", ex.getMessage(), "codigo", "LIMITE_REQUISICOES"));
     }
 
     @ExceptionHandler({CredenciaisInvalidasException.class, SessaoExpiradaException.class})
     public ResponseEntity<Map<String, String>> credenciaisInvalidas(IllegalArgumentException ex) {
+        if (ex instanceof SessaoExpiradaException) auditoria.negar(null,Motivo.SEM_SESSAO,recurso());
         return resposta(HttpStatus.UNAUTHORIZED, "NAO_AUTENTICADO", ex.getMessage());
     }
 
@@ -58,11 +81,13 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> erroRegra(IllegalArgumentException ex) {
+        if (ex instanceof RedefinicaoInvalidaException) auditoria.negar(null,Motivo.CODIGO_INVALIDO,Recurso.RECUPERACAO);
         return resposta(HttpStatus.BAD_REQUEST, "REGRA_INVALIDA", ex instanceof RegraNegocioException ? ex.getMessage() : "Dados inválidos para esta operação.");
     }
 
     @ExceptionHandler(SecurityException.class)
     public ResponseEntity<Map<String, String>> erroPermissao(SecurityException ex) {
+        auditoria.negar(membroAutenticado(),Motivo.SEM_PERMISSAO,recurso());
         return resposta(HttpStatus.FORBIDDEN, "ACESSO_NEGADO", "Você não tem permissão para executar esta ação.");
     }
 

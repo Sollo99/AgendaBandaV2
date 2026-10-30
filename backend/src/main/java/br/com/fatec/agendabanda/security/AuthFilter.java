@@ -9,17 +9,21 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import br.com.fatec.agendabanda.dto.ErroApi;
+import br.com.fatec.agendabanda.service.AuditoriaAutenticacaoService;
+import br.com.fatec.agendabanda.security.EventoAutenticacao.Motivo;
 
 @Component
 public class AuthFilter extends OncePerRequestFilter {
     private final TokenService tokenService;
     private final LimitadorAutenticacao limitador;
     private final SegurancaHttp seguranca;
+    private final AuditoriaAutenticacaoService auditoria;
 
-    public AuthFilter(TokenService tokenService, LimitadorAutenticacao limitador, SegurancaHttp seguranca) {
+    public AuthFilter(TokenService tokenService, LimitadorAutenticacao limitador, SegurancaHttp seguranca, AuditoriaAutenticacaoService auditoria) {
         this.tokenService = tokenService;
         this.limitador = limitador;
         this.seguranca = seguranca;
+        this.auditoria = auditoria;
     }
 
     @Override
@@ -32,6 +36,7 @@ public class AuthFilter extends OncePerRequestFilter {
             String metodo = request.getMethod();
             boolean segura = "GET".equals(metodo) || "HEAD".equals(metodo) || "OPTIONS".equals(metodo);
             if (!segura && !seguranca.csrfValido(request)) {
+                auditoria.negar(null, Motivo.CSRF_INVALIDO, EventoAutenticacao.recursoDaRota(path));
                 ErroApi.escrever(response, 403, "CSRF_INVALIDO", "Recarregue a página e tente novamente.");
                 return;
             }
@@ -45,6 +50,7 @@ public class AuthFilter extends OncePerRequestFilter {
         if ("POST".equalsIgnoreCase(request.getMethod()) && tipo != null) {
             long espera = limitador.segundosDeEspera(tipo, request.getRemoteAddr());
             if (espera > 0) {
+                auditoria.limitar(EventoAutenticacao.recursoDaRota(path));
                 response.setHeader("Retry-After", Long.toString(espera));
                 ErroApi.escrever(response, 429, "LIMITE_REQUISICOES", "Muitas tentativas. Aguarde e tente novamente.");
                 return;
@@ -59,14 +65,19 @@ public class AuthFilter extends OncePerRequestFilter {
         }
 
         java.util.Optional<SessaoUsuario> sessao;
+        String token = tokenService.extrairToken(request);
         try {
-            sessao = tokenService.buscarSessao(tokenService.extrairToken(request));
+            sessao = tokenService.buscarSessao(token);
         } catch (org.springframework.dao.DataAccessException ex) {
             org.slf4j.LoggerFactory.getLogger(AuthFilter.class).error("Falha ao consultar sessao.", ex);
             ErroApi.escrever(response, 500, "ERRO_INTERNO", "Não foi possível verificar a sessão. Tente novamente mais tarde.");
             return;
         }
         if (sessao.isEmpty()) {
+            // A visita anonima inicial consulta /me sem cookie; isso nao e uma tentativa de login.
+            if (!path.equals("/api/membros/me") || (token != null && !token.isBlank())) {
+                auditoria.negar(null, Motivo.SEM_SESSAO, EventoAutenticacao.recursoDaRota(path));
+            }
             ErroApi.escrever(response, 401, "NAO_AUTENTICADO", "Acesso não autenticado.");
             return;
         }

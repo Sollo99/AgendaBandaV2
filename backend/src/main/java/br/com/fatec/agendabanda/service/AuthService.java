@@ -39,10 +39,13 @@ public class AuthService {
     private final Clock clock;
     private final String hashFicticio;
     private final LimitadorAutenticacao limitador;
+    private final AuditoriaContexto auditoria;
+    private final AuditoriaAutenticacaoService auditoriaAutenticacao;
 
     public AuthService(MembroRepository membroRepository, BCryptPasswordEncoder passwordEncoder, TokenService tokenService, MapperService mapperService,
                        RedefinicaoSenhaRepository redefinicaoSenhaRepository, SenhaMembroService senhaMembroService,
-                       CicloRecuperacaoService ciclo, Clock clock, LimitadorAutenticacao limitador) {
+                       CicloRecuperacaoService ciclo, Clock clock, LimitadorAutenticacao limitador, AuditoriaContexto auditoria,
+                       AuditoriaAutenticacaoService auditoriaAutenticacao) {
         this.membroRepository = membroRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenService = tokenService;
@@ -52,6 +55,8 @@ public class AuthService {
         this.ciclo = ciclo;
         this.clock = clock;
         this.limitador = limitador;
+        this.auditoria = auditoria;
+        this.auditoriaAutenticacao = auditoriaAutenticacao;
         this.hashFicticio = passwordEncoder.encode(UUID.randomUUID().toString());
     }
 
@@ -64,14 +69,22 @@ public class AuthService {
         boolean senhaConfere = passwordEncoder.matches(request.senha(), membro == null ? hashFicticio : membro.getSenha());
         if (!senhaConfere || membro == null || !Boolean.TRUE.equals(membro.getAtivo())
                 || !"APROVADO".equals(membro.getStatusCadastro())) {
+            auditoriaAutenticacao.falhaLogin(codigo);
             limitador.registrarFalhaLogin(alvo, enderecoIp);
             throw new CredenciaisInvalidasException();
         }
 
         var sessao = new SessaoUsuario(membro.getCodigo(), membro.getNome(), membro.getLogin(), Boolean.TRUE.equals(membro.getAdministrador()));
         String token = tokenService.criarToken(sessao);
+        auditoriaAutenticacao.login(membro.getCodigo());
         limitador.limparFalhasLogin(alvo, enderecoIp);
         return new LoginResponse(token, mapperService.membroDto(membro));
+    }
+
+    @Transactional
+    public void logout(String token, SessaoUsuario sessao) {
+        tokenService.removerToken(token);
+        auditoriaAutenticacao.logout(sessao.codigo());
     }
 
     @Transactional
@@ -80,6 +93,8 @@ public class AuthService {
         limitador.verificarIdentificador(LimitadorAutenticacao.Tipo.RECUPERACAO,
                 codigoMembro == null ? "identificador:" + request.identificador().trim() : "membro:" + codigoMembro, enderecoIp);
         if (codigoMembro == null) return respostaPublica();
+        // Informar um identificador nao comprova identidade: abertura/expiracao publica ficam anonimas.
+        auditoria.preparar(null);
         var membro = membroRepository.bloquearPorCodigo(codigoMembro).orElse(null);
         if (membro == null || !Boolean.TRUE.equals(membro.getAtivo()) || !"APROVADO".equals(membro.getStatusCadastro())) return respostaPublica();
         // A abertura nunca entrega ou valida uma credencial. A aprovacao gera outra chave.
@@ -107,6 +122,7 @@ public class AuthService {
         if (!chaveConfere(redefinicao, request.chaveSolicitacao())) {
             throw new RedefinicaoInvalidaException();
         }
+        auditoria.preparar(alvo);
         // Persiste a expiracao, mas nao a distingue de qualquer outro codigo indisponivel.
         if (ciclo.expirarSeNecessario(redefinicao)) throw new RedefinicaoInvalidaException();
         if (!Boolean.TRUE.equals(redefinicao.getMembro().getAtivo()) || !"APROVADO".equals(redefinicao.getMembro().getStatusCadastro())) {
@@ -130,6 +146,7 @@ public class AuthService {
     @Transactional(noRollbackFor = RecuperacaoExpiradaException.class)
     public DecisaoRecuperacaoResponse decidirSolicitacao(Integer codigoSolicitacao, boolean aprovada, Integer codigoAdministrador, boolean identidadeVerificada) {
         if (aprovada && !identidadeVerificada) throw new RegraNegocioException("Confirme a identidade do membro por um canal conhecido antes de aprovar.");
+        auditoria.preparar(codigoAdministrador);
         exigirAdministradorAtivo(codigoAdministrador);
         bloquearMembroDaSolicitacao(codigoSolicitacao);
         var solicitacao = redefinicaoSenhaRepository.findByCodigoRedefinicaoAndStatus(codigoSolicitacao, "PENDENTE")
@@ -154,13 +171,13 @@ public class AuthService {
 
     @Transactional(noRollbackFor = RecuperacaoExpiradaException.class)
     public void cancelarSolicitacao(Integer codigoSolicitacao, Integer codigoAdministrador) {
+        auditoria.preparar(codigoAdministrador);
         exigirAdministradorAtivo(codigoAdministrador);
         bloquearMembroDaSolicitacao(codigoSolicitacao);
         var pedido = redefinicaoSenhaRepository.findByCodigoRedefinicaoAndStatusIn(codigoSolicitacao, CicloRecuperacaoService.ABERTAS)
                 .orElseThrow(() -> new RegraNegocioException("A solicitação já está encerrada."));
         if (ciclo.expirarSeNecessario(pedido)) throw new RecuperacaoExpiradaException();
-        ciclo.encerrar(pedido, "CANCELADA", "Cancelada pelo administrador de código " + codigoAdministrador + ".");
-        redefinicaoSenhaRepository.saveAndFlush(pedido);
+        ciclo.cancelarSolicitacao(pedido, "Cancelada pelo administrador de código " + codigoAdministrador + ".");
     }
 
     private void exigirAdministradorAtivo(Integer codigo) {

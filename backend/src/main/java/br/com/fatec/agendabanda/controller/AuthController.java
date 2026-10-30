@@ -66,7 +66,7 @@ public class AuthController {
 
     @PostMapping("/logout")
     public Map<String, String> logout(HttpServletRequest request, HttpServletResponse response) {
-        tokenService.removerToken(tokenService.extrairToken(request));
+        authService.logout(tokenService.extrairToken(request), tokenService.sessaoObrigatoria(request));
         seguranca.fecharSessao(request, response);
         return Map.of("mensagem", "Logout realizado com sucesso.");
     }
