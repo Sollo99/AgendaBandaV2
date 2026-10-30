@@ -13,7 +13,8 @@ export default function PerfilPage({ usuario, onAtualizar }: { usuario: Membro; 
     senhaAtual: "",
     novaSenha: "",
     instrumento: usuario.instrumento ?? "",
-    biografia: usuario.biografia ?? ""
+    biografia: usuario.biografia ?? "",
+    especialidade: usuario.especialidade ?? ""
   });
   const [erro, setErro] = useState("");
   const [mensagem, setMensagem] = useState("");
@@ -63,6 +64,11 @@ export default function PerfilPage({ usuario, onAtualizar }: { usuario: Membro; 
             <Box><Text mb="1">Biografia</Text><Textarea maxLength={500} value={form.biografia} onChange={(e) => setForm({ ...form, biografia: e.target.value })} /></Box>
           </Grid>
         </>}
+        {usuario.perfil === "PRODUTOR" && <Box>
+          <label htmlFor="perfil-especialidade">Especialidade</label>
+          <Input id="perfil-especialidade" maxLength={100} value={form.especialidade}
+            onChange={(e) => setForm({ ...form, especialidade: e.target.value })} required />
+        </Box>}
         <Text fontWeight="semibold">Alterar senha</Text>
         <Grid templateColumns={{ base: "1fr", md: "repeat(2, 1fr)" }} gap="4">
           <Box><Text mb="1">Senha atual</Text><Input maxLength={72} type="password" value={form.senhaAtual} onChange={(e) => setForm({ ...form, senhaAtual: e.target.value })} /></Box>

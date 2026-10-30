@@ -15,6 +15,7 @@ public record PerfilRequest(
         @Size(max = 72) String senhaAtual,
         @SenhaValida String novaSenha,
         @Size(max = 80) String instrumento,
-        @Size(max = 500) String biografia
+        @Size(max = 500) String biografia,
+        @Size(max = 100) String especialidade
 ) {
 }

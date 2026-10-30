@@ -6,6 +6,7 @@ import br.com.fatec.agendabanda.dto.*;
 import br.com.fatec.agendabanda.model.Membro;
 import br.com.fatec.agendabanda.repository.MembroRepository;
 import br.com.fatec.agendabanda.repository.MusicoRepository;
+import br.com.fatec.agendabanda.repository.ProdutorRepository;
 import br.com.fatec.agendabanda.exception.RecursoNaoEncontradoException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -15,16 +16,18 @@ import org.springframework.transaction.annotation.Transactional;
 public class PerfilPessoalService {
     private final MembroRepository membroRepository;
     private final MusicoRepository musicoRepository;
+    private final ProdutorRepository produtorRepository;
     private final BCryptPasswordEncoder passwordEncoder;
     private final MapperService mapperService;
     private final AuditoriaContexto auditoria;
     private final ValidadorMembro validador;
     private final SenhaMembroService senhas;
 
-    public PerfilPessoalService(MembroRepository membroRepository, MusicoRepository musicoRepository,
+    public PerfilPessoalService(MembroRepository membroRepository, MusicoRepository musicoRepository, ProdutorRepository produtorRepository,
             BCryptPasswordEncoder passwordEncoder, MapperService mapperService, AuditoriaContexto auditoria,
             ValidadorMembro validador, SenhaMembroService senhas) {
         this.membroRepository=membroRepository; this.musicoRepository=musicoRepository;
+        this.produtorRepository=produtorRepository;
         this.passwordEncoder=passwordEncoder; this.mapperService=mapperService; this.auditoria=auditoria;
         this.validador=validador; this.senhas=senhas;
     }
@@ -50,11 +53,21 @@ public class PerfilPessoalService {
             senhas.alterar(membro, request.novaSenha());
         }
         var salvo = membroRepository.save(membro);
-        musicoRepository.findById(codigoMembro).ifPresent(musico -> {
-            if (request.instrumento() != null) musico.setInstrumento(request.instrumento().trim());
-            if (request.biografia() != null) musico.setBiografia(request.biografia().trim());
-            musicoRepository.save(musico);
-        });
+        if ("MUSICO".equals(membro.getPerfil())) {
+            musicoRepository.findById(codigoMembro).ifPresent(musico -> {
+                if (request.instrumento() != null) musico.setInstrumento(request.instrumento().trim());
+                if (request.biografia() != null) musico.setBiografia(request.biografia().trim());
+                musicoRepository.save(musico);
+            });
+        } else if ("PRODUTOR".equals(membro.getPerfil()) && request.especialidade() != null) {
+            if (request.especialidade().isBlank()) {
+                throw new RegraNegocioException("Informe a especialidade do produtor.");
+            }
+            var produtor = produtorRepository.findById(codigoMembro)
+                    .orElseThrow(() -> new RecursoNaoEncontradoException("Perfil de produtor não encontrado."));
+            produtor.setEspecialidade(request.especialidade().trim());
+            produtorRepository.save(produtor);
+        }
         return mapperService.membroDto(salvo);
     }
 
