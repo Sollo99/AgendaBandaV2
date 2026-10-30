@@ -11,9 +11,21 @@ GO
 DROP PROCEDURE IF EXISTS dbo.usp_criar_evento;
 DROP PROCEDURE IF EXISTS dbo.usp_atualizar_evento;
 DROP PROCEDURE IF EXISTS dbo.usp_atualizar_participacao;
+DROP PROCEDURE IF EXISTS dbo.usp_excluir_evento;
+DROP PROCEDURE IF EXISTS dbo.usp_alterar_acesso_membro;
+DROP PROCEDURE IF EXISTS dbo.usp_decidir_cadastro;
+DROP PROCEDURE IF EXISTS dbo.usp_liberar_identificadores;
+DROP PROCEDURE IF EXISTS dbo.usp_limpar_historicos;
+DROP PROCEDURE IF EXISTS dbo.usp_limpar_sessoes;
+DROP PROCEDURE IF EXISTS dbo.usp_expirar_recuperacoes;
+DROP PROCEDURE IF EXISTS dbo.usp_cancelar_recuperacoes;
+DROP PROCEDURE IF EXISTS dbo.usp_excluir_local;
+DROP PROCEDURE IF EXISTS dbo.usp_registrar_autenticacao;
 DROP VIEW IF EXISTS dbo.vw_agenda_detalhada;
 DROP VIEW IF EXISTS dbo.vw_presenca_musicos;
 DROP VIEW IF EXISTS dbo.vw_ocupacao_locais;
+DROP VIEW IF EXISTS dbo.vw_historico_unificado;
+DROP VIEW IF EXISTS dbo.vw_sessoes_membros;
 DROP FUNCTION IF EXISTS dbo.fn_taxa_presenca_musico;
 DROP FUNCTION IF EXISTS dbo.fn_conflitos_agendamento;
 DROP FUNCTION IF EXISTS dbo.fn_resumo_periodo;
@@ -243,11 +255,12 @@ CREATE TABLE historico_operacoes (
     entidade_afetada NVARCHAR(50) NOT NULL,
     -- Texto permite a chave composta agenda:musico.
     codigo_registro_afetado NVARCHAR(100) NOT NULL,
-    tipo_operacao NVARCHAR(10) NOT NULL,
+    tipo_operacao NVARCHAR(20) NOT NULL,
     data_hora DATETIME2 NOT NULL,
     dados_anteriores NVARCHAR(MAX) NULL,
     dados_novos NVARCHAR(MAX) NULL,
-    CONSTRAINT ck_historico_operacoes_operacao CHECK (tipo_operacao IN (N'INSERT', N'UPDATE', N'DELETE')),
+    CONSTRAINT ck_historico_operacoes_operacao CHECK (tipo_operacao IN (N'INSERT', N'UPDATE', N'DELETE',
+        N'LOGIN', N'LOGOUT', N'LOGIN_FALHOU', N'ACESSO_NEGADO', N'LIMITE_EXCEDIDO')),
     CONSTRAINT fk_historico_operacoes_responsavel FOREIGN KEY (membro_responsavel) REFERENCES membros(codigo)
 );
 GO

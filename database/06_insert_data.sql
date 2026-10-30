@@ -1,6 +1,27 @@
 USE AgendaBanda;
 GO
 
+-- A carga depende da auditoria instalada: todos os exemplos geram historicos pelas triggers.
+SET XACT_ABORT ON;
+IF (SELECT COUNT(*) FROM sys.triggers WHERE is_disabled=0 AND object_id IN (
+    OBJECT_ID(N'dbo.trg_agenda_historico',N'TR'),
+    OBJECT_ID(N'dbo.trg_participacao_historico',N'TR'),
+    OBJECT_ID(N'dbo.trg_membros_historico',N'TR'),
+    OBJECT_ID(N'dbo.trg_cidades_historico',N'TR'),
+    OBJECT_ID(N'dbo.trg_locais_historico',N'TR'),
+    OBJECT_ID(N'dbo.trg_tipos_evento_historico',N'TR'),
+    OBJECT_ID(N'dbo.trg_musicos_historico',N'TR'),
+    OBJECT_ID(N'dbo.trg_produtores_historico',N'TR'),
+    OBJECT_ID(N'dbo.trg_recuperacoes_historico',N'TR')
+))<>9
+    THROW 50001,N'Execute os scripts 00 a 05 antes da carga inicial; as triggers de auditoria devem estar habilitadas.',1;
+
+-- Carga de instalacao nao representa uma acao de um usuario autenticado.
+EXEC sys.sp_set_session_context @key=N'membro_responsavel',@value=NULL;
+
+BEGIN TRY
+    BEGIN TRANSACTION;
+
 INSERT INTO membros (nome, cpf, email, login, senha, administrador, ativo, perfil) VALUES
 (N'Administrador', N'90000000175', N'admin@banda.local', N'admin', '$2y$05$3FRvl9fdRnF5fEOqIBW2VerMK840C3RA6xwC2CPcO5agcuRYHtXqm', 1, 1, N'MUSICO'),
 (N'Usuario Teste', N'90000000256', N'usuario@banda.local', N'usuario', '$2y$05$3oagEcFOHAlQPEa9TM3fM.LVLxw1bbB7GbcAuRfhuN8ySQnqheWzi', 0, 1, N'MUSICO'),
@@ -12,7 +33,6 @@ INSERT INTO membros (nome, cpf, email, login, senha, administrador, ativo, perfi
 (N'Elisa Rocha', N'90000000841', N'elisa@banda.local', N'elisa', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'MUSICO'),
 (N'Felipe Martins', N'90000000922', N'felipe@banda.local', N'felipe', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'MUSICO'),
 (N'Gabriela Alves', N'90000001066', N'gabriela@banda.local', N'gabriela', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'MUSICO');
-GO
 
 INSERT INTO musicos (codigo, instrumento, biografia) VALUES
 (1, N'Direcao musical', N'Responsavel pela organizacao musical da banda.'),
@@ -25,7 +45,6 @@ INSERT INTO musicos (codigo, instrumento, biografia) VALUES
 (8, N'Percussao', N'Apoio ritmico em apresentacoes.'),
 (9, N'Saxofone', N'Participa de arranjos especiais.'),
 (10, N'Backing vocal', N'Apoio vocal nas musicas.');
-GO
 
 INSERT INTO membros (nome, cpf, email, login, senha, administrador, ativo, perfil) VALUES
 (N'Produtor demonstracao 1', N'90000001147', N'produtor1@banda.local', N'produtor1', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'PRODUTOR'),
@@ -38,7 +57,6 @@ INSERT INTO membros (nome, cpf, email, login, senha, administrador, ativo, perfi
 (N'Produtor demonstracao 8', N'90000001813', N'produtor8@banda.local', N'produtor8', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'PRODUTOR'),
 (N'Produtor demonstracao 9', N'90000001902', N'produtor9@banda.local', N'produtor9', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'PRODUTOR'),
 (N'Produtor demonstracao 10', N'90000002038', N'produtor10@banda.local', N'produtor10', '$2y$05$sQQgwrIFOTxi0MduVmg8KuRRGry63ppKHocOXQ0iB5cUldTIK5V3S', 0, 1, N'PRODUTOR');
-GO
 
 INSERT INTO produtores (codigo, especialidade) VALUES
 (11, N'Administracao geral'),
@@ -51,7 +69,6 @@ INSERT INTO produtores (codigo, especialidade) VALUES
 (18, N'Som ao vivo'),
 (19, N'Iluminacao'),
 (20, N'Redes sociais');
-GO
 
 INSERT INTO cidades (nome, uf) VALUES
 (N'Sao Paulo', 'SP'),
@@ -64,7 +81,6 @@ INSERT INTO cidades (nome, uf) VALUES
 (N'Sao Bernardo do Campo', 'SP'),
 (N'Santo Andre', 'SP'),
 (N'Mogi das Cruzes', 'SP');
-GO
 
 INSERT INTO locais (nome, endereco, complemento, codigo_cidade) VALUES
 (N'Estudio Central', N'Rua das Bandas, 100', N'Sala 2', 1),
@@ -77,13 +93,11 @@ INSERT INTO locais (nome, endereco, complemento, codigo_cidade) VALUES
 (N'Galpao Musical', N'Rua Industrial, 900', N'Portao 3', 7),
 (N'Sede da Banda', N'Rua dos Artistas, 12', N'1o andar', 8),
 (N'Praca de Eventos', N'Av. Eventos, 1000', N'Palco externo', 9);
-GO
 
 INSERT INTO tipos_evento (nome, descricao, categoria_detalhe, ativo) VALUES
 (N'ENSAIO', N'Encontro para prática e preparação musical.', N'ENSAIO', 1),
 (N'SHOW', N'Apresentação pública da banda.', N'SHOW', 1),
 (N'REUNIAO', N'Encontro de organização e planejamento.', N'REUNIAO', 1);
-GO
 
 INSERT INTO agenda (titulo, descricao, dt_hora_in, dt_hora_fim, codigo_local, cod_membro_criador) VALUES
 (N'Ensaio 1', N'Ensaio geral da banda numero 1.', '2026-10-01T19:00:00', '2026-10-01T21:00:00', 1, 1),
@@ -116,7 +130,6 @@ INSERT INTO agenda (titulo, descricao, dt_hora_in, dt_hora_fim, codigo_local, co
 (N'Reuniao 8', N'Reuniao de planejamento numero 8.', '2026-12-08T18:30:00', '2026-12-08T19:30:00', 8, 8),
 (N'Reuniao 9', N'Reuniao de planejamento numero 9.', '2026-12-09T18:30:00', '2026-12-09T19:30:00', 9, 9),
 (N'Reuniao 10', N'Reuniao de planejamento numero 10.', '2026-12-10T18:30:00', '2026-12-10T19:30:00', 10, 10);
-GO
 
 INSERT INTO ensaios (codigo_agenda, repertorio, observacao) VALUES
 (1, N'Musica 1A, Musica 1B, Musica 1C', N'Ajustar dinamica do ensaio 1.'),
@@ -129,7 +142,6 @@ INSERT INTO ensaios (codigo_agenda, repertorio, observacao) VALUES
 (8, N'Musica 8A, Musica 8B, Musica 8C', N'Ajustar dinamica do ensaio 8.'),
 (9, N'Musica 9A, Musica 9B, Musica 9C', N'Ajustar dinamica do ensaio 9.'),
 (10, N'Musica 10A, Musica 10B, Musica 10C', N'Ajustar dinamica do ensaio 10.');
-GO
 
 INSERT INTO shows (codigo_agenda, codigo_cidade) VALUES
 (11, 1),
@@ -142,7 +154,6 @@ INSERT INTO shows (codigo_agenda, codigo_cidade) VALUES
 (18, 8),
 (19, 9),
 (20, 10);
-GO
 
 INSERT INTO reunioes (codigo_agenda, pauta) VALUES
 (21, N'Organizacao de repertorio, horarios, transporte e divulgacao do evento 1.'),
@@ -155,15 +166,11 @@ INSERT INTO reunioes (codigo_agenda, pauta) VALUES
 (28, N'Organizacao de repertorio, horarios, transporte e divulgacao do evento 8.'),
 (29, N'Organizacao de repertorio, horarios, transporte e divulgacao do evento 9.'),
 (30, N'Organizacao de repertorio, horarios, transporte e divulgacao do evento 10.');
-GO
-
-
 
 -- Ensaios de outubro realizados; shows de novembro e reunioes de dezembro futuros.
 UPDATE agenda SET status = N'REALIZADO' WHERE codigo_agenda BETWEEN 1 AND 10;
 UPDATE agenda SET codigo_tipo = 2 WHERE codigo_agenda BETWEEN 11 AND 20;
 UPDATE agenda SET codigo_tipo = 3 WHERE codigo_agenda BETWEEN 21 AND 30;
-GO
 
 INSERT INTO participacao_evento (codigo_agenda, cod_musico, status_confirmacao, presente, data_resposta) VALUES
 (1, 1, N'CONFIRMADO', 1, '2026-09-30T12:00:00'), (2, 2, N'CONFIRMADO', 1, '2026-09-30T12:00:00'),
@@ -181,4 +188,11 @@ INSERT INTO participacao_evento (codigo_agenda, cod_musico, status_confirmacao, 
 (25, 5, N'PENDENTE', NULL, NULL), (26, 6, N'PENDENTE', NULL, NULL),
 (27, 7, N'PENDENTE', NULL, NULL), (28, 8, N'PENDENTE', NULL, NULL),
 (29, 9, N'PENDENTE', NULL, NULL), (30, 10, N'PENDENTE', NULL, NULL);
+
+    COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+    IF XACT_STATE()<>0 ROLLBACK TRANSACTION;
+    THROW;
+END CATCH;
 GO

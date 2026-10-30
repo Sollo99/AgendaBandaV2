@@ -1,6 +1,8 @@
 USE AgendaBanda;
 GO
 
+-- Funcoes utilizadas pelas consultas da aplicacao.
+
 -- Escalar: percentual somente entre presencas/ausencias efetivamente lancadas.
 CREATE OR ALTER FUNCTION dbo.fn_taxa_presenca_musico
 (@musico INT, @inicio DATETIME2, @fim DATETIME2)

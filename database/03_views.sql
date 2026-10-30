@@ -1,6 +1,8 @@
 USE AgendaBanda;
 GO
 
+-- Views utilizadas pela agenda, autenticacao e relatorios.
+
 CREATE OR ALTER VIEW dbo.vw_agenda_detalhada AS
 SELECT a.codigo_agenda, a.titulo, a.descricao, a.dt_hora_in, a.dt_hora_fim, a.status,
     l.codigo_local, l.nome AS local_nome, l.endereco, l.complemento,
@@ -57,4 +59,27 @@ SELECT l.codigo_local, l.nome AS local_nome, c.nome AS cidade_nome, c.uf,
 FROM locais l JOIN cidades c ON c.codigo_cidade = l.codigo_cidade
 LEFT JOIN agenda a ON a.codigo_local = l.codigo_local
 LEFT JOIN tipos_evento t ON t.codigo_tipo = a.codigo_tipo;
+GO
+
+CREATE OR ALTER VIEW dbo.vw_historico_unificado AS
+SELECT h.codigo, h.entidade, h.registro, h.operacao, h.data_hora, h.membro_responsavel,
+    h.dados_anteriores, h.dados_novos, m.nome AS responsavel
+FROM (
+    SELECT codigo_historico AS codigo, N'AGENDA' AS entidade,
+        CONVERT(NVARCHAR(100), codigo_agenda) AS registro, tipo_operacao AS operacao,
+        data_hora, membro_responsavel, dados_anteriores, dados_novos
+    FROM historico_eventos
+    UNION ALL
+    SELECT codigo_operacao, entidade_afetada, codigo_registro_afetado, tipo_operacao,
+        data_hora, membro_responsavel, dados_anteriores, dados_novos
+    FROM historico_operacoes
+) h LEFT JOIN membros m ON m.codigo = h.membro_responsavel;
+GO
+
+-- O prazo e aplicado na consulta parametrizada; desativacao e recusa retiram o acesso imediatamente.
+CREATE OR ALTER VIEW dbo.vw_sessoes_membros AS
+SELECT s.codigo_sessao,s.token_hash,s.criado_em,s.expira_em,
+    m.codigo,m.nome,m.login,m.administrador
+FROM sessoes s JOIN membros m ON m.codigo=s.codigo_membro
+WHERE m.ativo=1 AND m.status_cadastro=N'APROVADO';
 GO
