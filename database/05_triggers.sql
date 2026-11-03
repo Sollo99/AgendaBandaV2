@@ -109,7 +109,6 @@ BEGIN
     SET NOCOUNT ON;
     DECLARE @responsavel INT=TRY_CONVERT(INT,SESSION_CONTEXT(N'membro_responsavel'));
     DECLARE @agora DATETIME2=CONVERT(DATETIME2,SYSDATETIMEOFFSET() AT TIME ZONE 'E. South America Standard Time');
-    -- Lista explicita de campos; textos privados e segredos sao representados apenas por marcadores.
     INSERT INTO historico_operacoes (membro_responsavel,entidade_afetada,codigo_registro_afetado,tipo_operacao,data_hora,dados_anteriores,dados_novos)
     SELECT @responsavel,N'CIDADE',CONVERT(NVARCHAR(100),COALESCE(i.codigo_cidade,d.codigo_cidade)),
         CASE WHEN d.codigo_cidade IS NULL THEN N'INSERT' WHEN i.codigo_cidade IS NULL THEN N'DELETE' ELSE N'UPDATE' END,
@@ -133,7 +132,6 @@ BEGIN
     SET NOCOUNT ON;
     DECLARE @responsavel INT=TRY_CONVERT(INT,SESSION_CONTEXT(N'membro_responsavel'));
     DECLARE @agora DATETIME2=CONVERT(DATETIME2,SYSDATETIMEOFFSET() AT TIME ZONE 'E. South America Standard Time');
-    -- Lista explicita de campos; textos privados e segredos sao representados apenas por marcadores.
     INSERT INTO historico_operacoes (membro_responsavel,entidade_afetada,codigo_registro_afetado,tipo_operacao,data_hora,dados_anteriores,dados_novos)
     SELECT @responsavel,N'LOCAL',CONVERT(NVARCHAR(100),COALESCE(i.codigo_local,d.codigo_local)),
         CASE WHEN d.codigo_local IS NULL THEN N'INSERT' WHEN i.codigo_local IS NULL THEN N'DELETE' ELSE N'UPDATE' END,
@@ -157,7 +155,6 @@ BEGIN
     SET NOCOUNT ON;
     DECLARE @responsavel INT=TRY_CONVERT(INT,SESSION_CONTEXT(N'membro_responsavel'));
     DECLARE @agora DATETIME2=CONVERT(DATETIME2,SYSDATETIMEOFFSET() AT TIME ZONE 'E. South America Standard Time');
-    -- Lista explicita de campos; textos privados e segredos sao representados apenas por marcadores.
     INSERT INTO historico_operacoes (membro_responsavel,entidade_afetada,codigo_registro_afetado,tipo_operacao,data_hora,dados_anteriores,dados_novos)
     SELECT @responsavel,N'TIPO_EVENTO',CONVERT(NVARCHAR(100),COALESCE(i.codigo_tipo,d.codigo_tipo)),
         CASE WHEN d.codigo_tipo IS NULL THEN N'INSERT' WHEN i.codigo_tipo IS NULL THEN N'DELETE' ELSE N'UPDATE' END,
@@ -181,7 +178,6 @@ BEGIN
     SET NOCOUNT ON;
     DECLARE @responsavel INT=TRY_CONVERT(INT,SESSION_CONTEXT(N'membro_responsavel'));
     DECLARE @agora DATETIME2=CONVERT(DATETIME2,SYSDATETIMEOFFSET() AT TIME ZONE 'E. South America Standard Time');
-    -- Lista explicita de campos; textos privados e segredos sao representados apenas por marcadores.
     INSERT INTO historico_operacoes (membro_responsavel,entidade_afetada,codigo_registro_afetado,tipo_operacao,data_hora,dados_anteriores,dados_novos)
     SELECT @responsavel,N'MUSICO',CONVERT(NVARCHAR(100),COALESCE(i.codigo,d.codigo)),
         CASE WHEN d.codigo IS NULL THEN N'INSERT' WHEN i.codigo IS NULL THEN N'DELETE' ELSE N'UPDATE' END,
@@ -206,7 +202,6 @@ BEGIN
     SET NOCOUNT ON;
     DECLARE @responsavel INT=TRY_CONVERT(INT,SESSION_CONTEXT(N'membro_responsavel'));
     DECLARE @agora DATETIME2=CONVERT(DATETIME2,SYSDATETIMEOFFSET() AT TIME ZONE 'E. South America Standard Time');
-    -- Lista explicita de campos; textos privados e segredos sao representados apenas por marcadores.
     INSERT INTO historico_operacoes (membro_responsavel,entidade_afetada,codigo_registro_afetado,tipo_operacao,data_hora,dados_anteriores,dados_novos)
     SELECT @responsavel,N'PRODUTOR',CONVERT(NVARCHAR(100),COALESCE(i.codigo,d.codigo)),
         CASE WHEN d.codigo IS NULL THEN N'INSERT' WHEN i.codigo IS NULL THEN N'DELETE' ELSE N'UPDATE' END,

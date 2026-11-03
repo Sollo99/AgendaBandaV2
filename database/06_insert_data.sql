@@ -167,7 +167,7 @@ INSERT INTO reunioes (codigo_agenda, pauta) VALUES
 (29, N'Organizacao de repertorio, horarios, transporte e divulgacao do evento 9.'),
 (30, N'Organizacao de repertorio, horarios, transporte e divulgacao do evento 10.');
 
--- Ensaios de outubro realizados; shows de novembro e reunioes de dezembro futuros.
+-- Ensaios de outubro realizados; shows de novembro e reunioes de dezembro agendados.
 UPDATE agenda SET status = N'REALIZADO' WHERE codigo_agenda BETWEEN 1 AND 10;
 UPDATE agenda SET codigo_tipo = 2 WHERE codigo_agenda BETWEEN 11 AND 20;
 UPDATE agenda SET codigo_tipo = 3 WHERE codigo_agenda BETWEEN 21 AND 30;
