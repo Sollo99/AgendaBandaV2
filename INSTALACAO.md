@@ -37,12 +37,12 @@ Se o projeto já foi baixado, abra o terminal na pasta que contém `backend`, `d
 
 1. Inicie a instância do SQL Server e conecte-se a ela pelo SQL Server Management Studio.
 2. Para a conexão usada pela aplicação, habilite a autenticação do SQL Server junto à autenticação do Windows e o protocolo TCP/IP. Os valores padrão do projeto usam `localhost:1433`; se a instância utilizar outro endereço ou porta, ajuste a configuração do backend.
-3. Conecte-se com uma conta que tenha permissão para criar o banco e o login da aplicação.
+3. Conecte-se com uma conta administrativa da instância, autorizada a criar banco, logins, certificado e conceder permissões ao módulo de inspeção de backups.
 4. Execute os arquivos de [database](database) inteiros, uma única vez e na ordem numérica abaixo.
 
 | Ordem | Script | Finalidade |
 | --- | --- | --- |
-| 1 | [00_create_login.sql](database/00_create_login.sql) | Cria o banco `AgendaBanda`, o login `agenda_user` e suas permissões. |
+| 1 | [00_create_login.sql](database/00_create_login.sql) | Cria o banco `AgendaBanda`, prepara seu proprietário `agenda_user` e os auxiliares de inspeção de backups em `master`. |
 | 2 | [01_create_schema.sql](database/01_create_schema.sql) | Cria tabelas, relacionamentos, restrições e índices. |
 | 3 | [02_functions.sql](database/02_functions.sql) | Cria as funções de presença, conflitos e resumo por período. |
 | 4 | [03_views.sql](database/03_views.sql) | Cria as consultas de agenda, presenças, ocupação dos locais, histórico unificado e sessões autorizadas. |
@@ -127,3 +127,8 @@ A saída será gravada em `web/dist`. As dependências devem ser instaladas no s
 | Interface sem acesso à API | Backend em execução, porta `8080` e configuração do proxy em `web/vite.config.ts`. |
 | Requisição recusada por origem ou CSRF | Acesso por `http://localhost:5173`, origem autorizada no backend e configuração de cookies compatível com HTTP local ou HTTPS publicado. |
 | Porta já ocupada | Libere as portas `8080` e `5173` ou ajuste em conjunto o backend, o proxy e a origem autorizada. |
+## Habilitar backups administrativos
+
+Na instalação local para avaliação, os sete scripts já preparam o recurso. Ao iniciar, o backend reutiliza a conexão normal, detecta a pasta padrão do SQL Server e solicita a primeira cópia. Entre como administrador e abra **Backups** para consultar o resultado, gerar cópias, restaurar e escolher dias e horário. Não é necessário preencher variáveis adicionais de backup.
+
+Execute o primeiro script com uma conta administrativa da instância: ele prepara a propriedade da base dedicada e o módulo assinado de inspeção em `master`. O perfil `prod` mantém backups desabilitados até configuração explícita. Consulte [Backup e restauração](BACKUP_RESTORE.md#preparação-do-servidor) para permissões, download e ajustes opcionais.

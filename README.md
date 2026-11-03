@@ -14,6 +14,7 @@ Desenvolvida como Mínimo Produto Viável (MPV) para o Projeto de Extensão Comu
 - [DER (Diagrama Entidade-Relacionamento)](BANCO_DE_DADOS.md#der)
 - [Dicionário de dados](DICIONARIO_DE_DADOS.md)
 - [Recursos SQL e auditoria](RECURSOS_SQL.md)
+- [Backup e restauração](BACKUP_RESTORE.md)
 - [Equipe e licença](#equipe-e-licença)
 
 ## Comece aqui
@@ -37,13 +38,14 @@ Use uma base dedicada: o script de estrutura remove os dados anteriores ao recri
 | Contas | Cadastro sujeito à aprovação, edição do próprio perfil, ativação e desativação de membros e recuperação de senha mediada por administrador. |
 | Relatórios | Resumo por tipo de evento, presença dos músicos, utilização de locais e consulta de históricos, com filtro de período. |
 | Integridade | Prevenção de conflitos de horário, preservação das respostas ao editar eventos e proteção de registros vinculados. |
+| Backups | Geração manual e automática, histórico e restauração pela área administrativa, com preparação incluída nos scripts de instalação. |
 
 Cada conta possui um perfil operacional: **membro**, **músico** ou **produtor**. A permissão de **administrador** é independente desse perfil.
 
 - **Membro autenticado:** consulta a agenda, administra o próprio perfil e cria eventos. Pode editar ou excluir os eventos que criou, respeitando as regras do sistema.
 - **Músico:** também responde às próprias participações em ensaios, shows e reuniões.
 - **Produtor:** possui cadastro de especialidade e utiliza os recursos comuns aos membros.
-- **Administrador:** gerencia usuários e cadastros, analisa solicitações, administra eventos, registra presenças e acessa relatórios e históricos.
+- **Administrador:** gerencia usuários e cadastros, analisa solicitações, administra eventos, registra presenças e acessa relatórios, históricos e backups.
 
 ## Documentação
 
@@ -54,9 +56,10 @@ Cada conta possui um perfil operacional: **membro**, **músico** ou **produtor**
 | [Regras de negócio](REGRAS_DE_NEGOCIO.md) | Permissões, conflitos de horário, participações, presenças e preservação dos vínculos. |
 | [Banco de dados e DER](BANCO_DE_DADOS.md) | Arquitetura, responsabilidades das entidades e diagrama das 15 tabelas. |
 | [Dicionário de dados](DICIONARIO_DE_DADOS.md) | Tipos, limites, valores padrão, chaves, índices e restrições dos 90 campos. |
-| [Recursos SQL e auditoria](RECURSOS_SQL.md) | As 13 procedures, cinco views, três funções e nove triggers utilizadas pela aplicação. |
+| [Recursos SQL e auditoria](RECURSOS_SQL.md) | Procedures, views, funções e triggers da aplicação e suporte administrativo a backups. |
 | [Configuração e segurança](SEGURANCA.md) | Sessões, cookies, CSRF, aprovação de contas, limites de tentativas e retenção de históricos. |
 | [API](API.md) | Rotas, permissões, paginação, formatos de data e respostas de erro. |
+| [Backup e restauração](BACKUP_RESTORE.md) | Preparação do SQL Server, backup ao iniciar, dias e horários, histórico, download e restauração administrativa. |
 
 Os fontes estão em [backend](backend) e [web](web). Os scripts oficiais para SQL Server estão em [database](database).
 

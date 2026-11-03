@@ -9,6 +9,7 @@
 - [Cadastro de uma conta](#cadastro-de-uma-conta)
 - [Recuperação de senha](#recuperação-de-senha)
 - [Roteiro de avaliação](#roteiro-de-avaliação)
+- [Backups administrativos](#backups-administrativos)
 
 ## Contas de demonstração
 
@@ -59,3 +60,10 @@ O pedido pendente tem validade padrão de 24 horas. Depois da aprovação, o có
 O registro de presença fica disponível ao administrador a partir do início de um evento não cancelado. Para avaliar essa função, selecione um compromisso que já tenha começado.
 
 Use **Marcar ausente** para registrar ausência diretamente, preservando a confirmação do músico. **Marcar presente** mantém uma confirmação existente; **Confirmar e marcar presente** confirma quem ainda não confirmou. O calendário e os detalhes exibem o nome cadastrado do tipo de evento; a cor corresponde à sua categoria de detalhe.
+## Backups administrativos
+
+Após executar os [scripts de instalação](BACKUP_RESTORE.md#preparação-do-servidor) e iniciar o backend, abra **Backups** com uma conta administrativa. Use **Gerar backup agora** para criar uma cópia e acompanhe o resultado e as cópias antigas no histórico.
+
+Em **Backups automáticos**, escolha se deseja gerar uma cópia ao iniciar o backend, opção ligada por padrão. Também é possível selecionar dias e horário; o backend deve permanecer ligado para executar esses agendamentos.
+
+Para restaurar, selecione uma cópia concluída, confira os avisos, informe sua senha atual e confirme o nome do banco. O sistema cria uma cópia de proteção antes da substituição. Após a conclusão, entre novamente com uma conta existente na cópia restaurada.
