@@ -6,7 +6,6 @@ import br.com.fatec.agendabanda.repository.ManutencaoSqlRepository;
 import br.com.fatec.agendabanda.repository.SessaoPersistidaRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Service;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.annotation.Transactional;
 import br.com.fatec.agendabanda.exception.SessaoExpiradaException;
 import java.time.Clock;
@@ -62,8 +61,6 @@ public class TokenService {
         sessaoRepository.deleteByCodigoMembro(codigoMembro);
     }
 
-    @Scheduled(initialDelayString = "${app.auth.sessao.varredura-ms:60000}",
-            fixedDelayString = "${app.auth.sessao.varredura-ms:60000}")
     @Transactional
     public int limparSessoesExpiradas() {
         return manutencao.limparSessoes(LocalDateTime.now(clock));
