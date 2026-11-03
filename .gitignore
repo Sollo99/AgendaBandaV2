@@ -38,3 +38,8 @@ RELATORIO_*.md
 *.tar
 AgendaBanda-fonte*.zip
 *.tmp
+
+# Backups e catalogo operacional local
+*.bak
+*.trn
+**/data/backup-admin/
