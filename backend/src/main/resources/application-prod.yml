@@ -1,5 +1,7 @@
 # Ativar com SPRING_PROFILES_ACTIVE=prod ao publicar por HTTPS.
 app:
+  backup:
+    habilitado: ${BACKUP_HABILITADO:false}
   auth:
     cookie:
       secure: true

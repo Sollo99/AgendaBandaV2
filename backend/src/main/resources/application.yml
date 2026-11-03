@@ -20,6 +20,8 @@ spring:
     username: ${DB_USER:agenda_user}
     password: ${DB_PASSWORD:agenda123}
     driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    hikari:
+      allow-pool-suspension: true
   jpa:
     hibernate:
       ddl-auto: none
@@ -33,6 +35,16 @@ spring:
   jackson:
     time-zone: America/Sao_Paulo
 app:
+  backup:
+    habilitado: ${BACKUP_HABILITADO:true}
+    banco: ${BACKUP_BANCO:${DB_NAME:AgendaBanda}}
+    jdbc-url: ${BACKUP_JDBC_URL:}
+    usuario: ${BACKUP_USUARIO:}
+    senha: ${BACKUP_SENHA:}
+    diretorio-sql: ${BACKUP_DIRETORIO_SQL:}
+    catalogo: ${BACKUP_CATALOGO:data/backup-admin}
+    diretorio-download: ${BACKUP_DIRETORIO_DOWNLOAD:}
+    timeout-segundos: ${BACKUP_TIMEOUT_SEGUNDOS:1800}
   auth:
     cookie:
       secure: ${AUTH_COOKIE_SECURE:false}
