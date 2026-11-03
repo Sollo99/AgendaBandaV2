@@ -111,3 +111,20 @@ export type HistoricoRegistro = {
 };
 export type Pagina<T> = { content: T[]; page: number; size: number; totalElements: number; totalPages: number };
 export type ParticipacaoAtualizacao = { statusConfirmacao?: ParticipacaoEvento["statusConfirmacao"]; presente?: boolean; observacao?: string };
+
+export type BackupPreferencias = { aoIniciar: boolean; agendado: boolean; horario: string; diasSemana: number[] };
+export type BackupRegistro = {
+  codigo: string; tipo: "BACKUP" | "RESTORE";
+  origem: "MANUAL" | "AGENDADO" | "INICIALIZACAO" | "PRE_RESTAURACAO";
+  backupOrigem: string | null; responsavel: number | null; nomeResponsavel: string | null;
+  inicio: string; fim: string | null;
+  estado: "EM_FILA" | "EXECUTANDO" | "CONCLUIDO" | "FALHOU" | "INTERROMPIDO";
+  arquivo: string | null; tamanhoBytes: number | null; assinaturaSchema: string | null; mensagem: string;
+};
+export type BackupPainel = {
+  habilitado: boolean; configurado: boolean; downloadDisponivel: boolean; banco: string; aviso: string;
+  preferencias: BackupPreferencias; proximaExecucao: string | null;
+  emAndamento: BackupRegistro | null; manutencao: boolean;
+};
+export type BackupOperacao = { registro: BackupRegistro; acompanhamento: string };
+export type BackupProgresso = { registro: BackupRegistro; manutencao: boolean };

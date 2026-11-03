@@ -1,5 +1,6 @@
 import type { Agenda, Cidade, LocalEvento, LoginResponse, Membro, MusicoResumo, ParticipacaoEvento, SolicitacaoSenha, TipoEvento, Relatorio, HistoricoRegistro, Pagina } from "./types";
 import { geracaoSessao, tratarNaoAutenticado } from "./sessao";
+import type { BackupPainel, BackupPreferencias, BackupRegistro, BackupOperacao, BackupProgresso } from "./types";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "/api";
 
@@ -80,6 +81,13 @@ function parametros(valores: Record<string, string | number | undefined>) {
 export type FiltrosAgenda = { page?: number; size?: number; inicio?: string; fim?: string };
 
 export const api = {
+  configurarBackups: (dados: BackupPreferencias) => request<BackupPainel>("/backups/configuracao", { method: "PUT", body: JSON.stringify(dados) }),
+  painelBackups: (signal?: AbortSignal) => request<BackupPainel>("/backups/configuracao", { signal }),
+  listarBackups: (page = 0, signal?: AbortSignal) => request<Pagina<BackupRegistro>>(`/backups?${parametros({ page, size: 20 })}`, { signal }),
+  gerarBackup: () => request<BackupOperacao>("/backups", { method: "POST" }),
+  restaurarBackup: (id: string, senhaAtual: string, confirmacao: string) => request<BackupOperacao>(`/backups/${encodeURIComponent(id)}/restaurar`, { method: "POST", body: JSON.stringify({ senhaAtual, confirmacao }) }),
+  acompanharBackup: (id: string, acompanhamento: string, signal?: AbortSignal) => request<BackupProgresso>(`/backups/operacoes/${encodeURIComponent(id)}`, { publica: true, signal, headers: { "X-Backup-Acompanhamento": acompanhamento } }),
+  enderecoArquivoBackup: (id: string) => `${API_URL}/backups/${encodeURIComponent(id)}/arquivo`,
   consultarRelatorios: (inicio: string, fim: string, signal?: AbortSignal) => request<Relatorio>(`/relatorios?${new URLSearchParams({ inicio, fim })}`, { signal }),
   consultarHistoricos: (inicio: string, fim: string, signal?: AbortSignal) => request<HistoricoRegistro[]>(`/relatorios/historicos?${new URLSearchParams({ inicio, fim })}`, { signal }),
   login: (login: string, senha: string) => request<LoginResponse>("/auth/login", {

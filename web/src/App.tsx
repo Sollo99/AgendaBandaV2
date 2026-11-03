@@ -11,10 +11,11 @@ const CidadesPage = lazy(() => import("./components/CidadesPage"));
 const TiposEventoPage = lazy(() => import("./components/TiposEventoPage"));
 import PerfilPage from "./components/PerfilPage";
 const RelatoriosPage = lazy(() => import("./components/RelatoriosPage"));
+const BackupsPage = lazy(() => import("./components/BackupsPage"));
 const SolicitacoesSenhaAdmin = lazy(() => import("./components/SolicitacoesSenhaAdmin"));
 import { ColorModeButton } from "./components/ui/ColorModeButton";
 
-type Aba = "agenda" | "perfil" | "usuarios" | "locais" | "cidades" | "tipos" | "relatorios";
+type Aba = "agenda" | "perfil" | "usuarios" | "locais" | "cidades" | "tipos" | "relatorios" | "backups";
 
 export default function App() {
   const [usuario, setUsuario] = useState<Membro | null>(null);
@@ -120,6 +121,7 @@ export default function App() {
             {usuario.administrador && <Button variant={aba === "cidades" ? "solid" : "outline"} onClick={() => setAba("cidades")}>Cidades</Button>}
             {usuario.administrador && <Button variant={aba === "tipos" ? "solid" : "outline"} onClick={() => setAba("tipos")}>Tipos de evento</Button>}
             {usuario.administrador && <Button variant={aba === "relatorios" ? "solid" : "outline"} onClick={() => setAba("relatorios")}>Relatórios</Button>}
+            {usuario.administrador && <Button variant={aba === "backups" ? "solid" : "outline"} onClick={() => setAba("backups")}>Backups</Button>}
             <ColorModeButton />
             <Button variant="ghost" onClick={sair}>Sair</Button>
           </HStack>
@@ -134,6 +136,7 @@ export default function App() {
         {aba === "cidades" && usuario.administrador && <CidadesPage />}
         {aba === "tipos" && usuario.administrador && <TiposEventoPage />}
         {aba === "relatorios" && usuario.administrador && <RelatoriosPage />}
+        {aba === "backups" && usuario.administrador && <BackupsPage />}
       </Suspense></Box>
     </Box>
   );
