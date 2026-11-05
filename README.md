@@ -59,6 +59,7 @@ Cada conta possui um perfil operacional: **membro**, **músico** ou **produtor**
 | [Recursos SQL e auditoria](RECURSOS_SQL.md) | Procedures, views, funções e triggers da aplicação e suporte administrativo a backups. |
 | [Configuração e segurança](SEGURANCA.md) | Sessões, cookies, CSRF, aprovação de contas, limites de tentativas e retenção de históricos. |
 | [API](API.md) | Rotas, permissões, paginação, formatos de data e respostas de erro. |
+| [Estatística com dados simulados](ESTATISTICA.md) | Base de 120 eventos, consultas para exportar ao Excel, fórmulas, gráficos e regressão linear. |
 | [Backup e restauração](BACKUP_RESTORE.md) | Preparação do SQL Server, backup ao iniciar, dias e horários, histórico, download e restauração administrativa. |
 
 Os fontes estão em [backend](backend) e [web](web). Os scripts oficiais para SQL Server estão em [database](database).

@@ -48,11 +48,13 @@ Se o projeto já foi baixado, abra o terminal na pasta que contém `backend`, `d
 | 4 | [03_views.sql](database/03_views.sql) | Cria as consultas de agenda, presenças, ocupação dos locais, histórico unificado e sessões autorizadas. |
 | 5 | [04_procedures.sql](database/04_procedures.sql) | Cria as operações transacionais de eventos, participações, cadastros, acesso, recuperação e manutenção. |
 | 6 | [05_triggers.sql](database/05_triggers.sql) | Cria os registros automáticos de auditoria. |
-| 7 | [06_insert_data.sql](database/06_insert_data.sql) | Insere as contas e os dados de demonstração, gerando seus históricos pelas triggers. |
+| 7 | [06_insert_data.sql](database/06_insert_data.sql) | Insere as contas e 120 eventos simulados com participações variadas para demonstração e estatística, gerando seus históricos pelas triggers. |
 
 **Use uma base dedicada ao projeto:** o script `01_create_schema.sql` recria os objetos e remove os dados anteriores. O backend utiliza a estrutura preparada pelos scripts; sua inicialização não cria as tabelas.
 
 A carga de demonstração é executada por último, numa única transação, com as triggers habilitadas. Seus registros de histórico ficam sem responsável autenticado. Login, logout e recuperação de senha geram seus próprios históricos conforme essas ações forem realizadas na aplicação.
+
+A carga `06` exige uma base vazia e bloqueia a repetição. Depois da instalação, o script opcional [07_consultas_estatistica.sql](database/07_consultas_estatistica.sql) fornece seis resultados para copiar ao Excel, sem alterar os dados da aplicação. Ele não é necessário para iniciar o sistema. Consulte o [roteiro de Estatística](ESTATISTICA.md) para as fórmulas, gráficos e valores de conferência.
 
 Ao alterar autenticação ou TCP/IP na configuração do SQL Server, reinicie o serviço da instância.
 
