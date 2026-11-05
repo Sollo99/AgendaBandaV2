@@ -1,6 +1,10 @@
 USE AgendaBanda;
 GO
 
+-- Dados inteiramente simulados para demonstracao e para a etapa de Estatistica.
+-- Executar uma unica vez, depois dos scripts 00 a 05, em uma base recem-preparada.
+-- A carga nao apaga nem substitui registros de uma instalacao existente.
+SET NOCOUNT ON;
 -- A carga depende da auditoria instalada: todos os exemplos geram historicos pelas triggers.
 SET XACT_ABORT ON;
 IF (SELECT COUNT(*) FROM sys.triggers WHERE is_disabled=0 AND object_id IN (
@@ -15,6 +19,11 @@ IF (SELECT COUNT(*) FROM sys.triggers WHERE is_disabled=0 AND object_id IN (
     OBJECT_ID(N'dbo.trg_recuperacoes_historico',N'TR')
 ))<>9
     THROW 50001,N'Execute os scripts 00 a 05 antes da carga inicial; as triggers de auditoria devem estar habilitadas.',1;
+
+IF EXISTS (SELECT 1 FROM membros) OR EXISTS (SELECT 1 FROM cidades)
+    OR EXISTS (SELECT 1 FROM locais) OR EXISTS (SELECT 1 FROM tipos_evento)
+    OR EXISTS (SELECT 1 FROM agenda)
+    THROW 50001,N'A carga inicial exige uma base vazia. Os dados existentes foram preservados; nao execute novamente o script 06.',1;
 
 -- Carga de instalacao nao representa uma acao de um usuario autenticado.
 EXEC sys.sp_set_session_context @key=N'membro_responsavel',@value=NULL;
@@ -99,95 +108,93 @@ INSERT INTO tipos_evento (nome, descricao, categoria_detalhe, ativo) VALUES
 (N'SHOW', N'Apresentação pública da banda.', N'SHOW', 1),
 (N'REUNIAO', N'Encontro de organização e planejamento.', N'REUNIAO', 1);
 
-INSERT INTO agenda (titulo, descricao, dt_hora_in, dt_hora_fim, codigo_local, cod_membro_criador) VALUES
-(N'Ensaio 1', N'Ensaio geral da banda numero 1.', '2026-10-01T19:00:00', '2026-10-01T21:00:00', 1, 1),
-(N'Ensaio 2', N'Ensaio geral da banda numero 2.', '2026-10-02T19:00:00', '2026-10-02T21:00:00', 2, 2),
-(N'Ensaio 3', N'Ensaio geral da banda numero 3.', '2026-10-03T19:00:00', '2026-10-03T21:00:00', 3, 3),
-(N'Ensaio 4', N'Ensaio geral da banda numero 4.', '2026-10-04T19:00:00', '2026-10-04T21:00:00', 4, 4),
-(N'Ensaio 5', N'Ensaio geral da banda numero 5.', '2026-10-05T19:00:00', '2026-10-05T21:00:00', 5, 5),
-(N'Ensaio 6', N'Ensaio geral da banda numero 6.', '2026-10-06T19:00:00', '2026-10-06T21:00:00', 6, 6),
-(N'Ensaio 7', N'Ensaio geral da banda numero 7.', '2026-10-07T19:00:00', '2026-10-07T21:00:00', 7, 7),
-(N'Ensaio 8', N'Ensaio geral da banda numero 8.', '2026-10-08T19:00:00', '2026-10-08T21:00:00', 8, 8),
-(N'Ensaio 9', N'Ensaio geral da banda numero 9.', '2026-10-09T19:00:00', '2026-10-09T21:00:00', 9, 9),
-(N'Ensaio 10', N'Ensaio geral da banda numero 10.', '2026-10-10T19:00:00', '2026-10-10T21:00:00', 10, 10),
-(N'Show 1', N'Apresentacao da banda numero 1.', '2026-11-01T20:00:00', '2026-11-01T22:30:00', 1, 1),
-(N'Show 2', N'Apresentacao da banda numero 2.', '2026-11-02T20:00:00', '2026-11-02T22:30:00', 2, 2),
-(N'Show 3', N'Apresentacao da banda numero 3.', '2026-11-03T20:00:00', '2026-11-03T22:30:00', 3, 3),
-(N'Show 4', N'Apresentacao da banda numero 4.', '2026-11-04T20:00:00', '2026-11-04T22:30:00', 4, 4),
-(N'Show 5', N'Apresentacao da banda numero 5.', '2026-11-05T20:00:00', '2026-11-05T22:30:00', 5, 5),
-(N'Show 6', N'Apresentacao da banda numero 6.', '2026-11-06T20:00:00', '2026-11-06T22:30:00', 6, 6),
-(N'Show 7', N'Apresentacao da banda numero 7.', '2026-11-07T20:00:00', '2026-11-07T22:30:00', 7, 7),
-(N'Show 8', N'Apresentacao da banda numero 8.', '2026-11-08T20:00:00', '2026-11-08T22:30:00', 8, 8),
-(N'Show 9', N'Apresentacao da banda numero 9.', '2026-11-09T20:00:00', '2026-11-09T22:30:00', 9, 9),
-(N'Show 10', N'Apresentacao da banda numero 10.', '2026-11-10T20:00:00', '2026-11-10T22:30:00', 10, 10),
-(N'Reuniao 1', N'Reuniao de planejamento numero 1.', '2026-12-01T18:30:00', '2026-12-01T19:30:00', 1, 1),
-(N'Reuniao 2', N'Reuniao de planejamento numero 2.', '2026-12-02T18:30:00', '2026-12-02T19:30:00', 2, 2),
-(N'Reuniao 3', N'Reuniao de planejamento numero 3.', '2026-12-03T18:30:00', '2026-12-03T19:30:00', 3, 3),
-(N'Reuniao 4', N'Reuniao de planejamento numero 4.', '2026-12-04T18:30:00', '2026-12-04T19:30:00', 4, 4),
-(N'Reuniao 5', N'Reuniao de planejamento numero 5.', '2026-12-05T18:30:00', '2026-12-05T19:30:00', 5, 5),
-(N'Reuniao 6', N'Reuniao de planejamento numero 6.', '2026-12-06T18:30:00', '2026-12-06T19:30:00', 6, 6),
-(N'Reuniao 7', N'Reuniao de planejamento numero 7.', '2026-12-07T18:30:00', '2026-12-07T19:30:00', 7, 7),
-(N'Reuniao 8', N'Reuniao de planejamento numero 8.', '2026-12-08T18:30:00', '2026-12-08T19:30:00', 8, 8),
-(N'Reuniao 9', N'Reuniao de planejamento numero 9.', '2026-12-09T18:30:00', '2026-12-09T19:30:00', 9, 9),
-(N'Reuniao 10', N'Reuniao de planejamento numero 10.', '2026-12-10T18:30:00', '2026-12-10T19:30:00', 10, 10);
+-- Cenario fixo de 2026: 120 eventos, com volumes mensais diferentes e sem sobreposicao.
+-- Janeiro a outubro: realizados, exceto cancelamentos. Novembro/dezembro: agenda futura
+-- no cenario de referencia (01/11/2026). As datas nao mudam conforme o dia da instalacao.
+-- A duracao PROGRAMADA depende de participantes previstos, tipo e variacao adicional.
+-- Essa relacao foi construida para o exercicio; nao comprova causalidade no mundo real.
+DECLARE @eventos TABLE (
+    sequencia INT PRIMARY KEY,
+    titulo NVARCHAR(120) NOT NULL,
+    codigo_tipo INT NOT NULL,
+    inicio DATETIME2 NOT NULL,
+    duracao_minutos INT NOT NULL,
+    participantes INT NOT NULL,
+    codigo_local INT NOT NULL,
+    criador INT NOT NULL,
+    status NVARCHAR(20) NOT NULL
+);
 
-INSERT INTO ensaios (codigo_agenda, repertorio, observacao) VALUES
-(1, N'Musica 1A, Musica 1B, Musica 1C', N'Ajustar dinamica do ensaio 1.'),
-(2, N'Musica 2A, Musica 2B, Musica 2C', N'Ajustar dinamica do ensaio 2.'),
-(3, N'Musica 3A, Musica 3B, Musica 3C', N'Ajustar dinamica do ensaio 3.'),
-(4, N'Musica 4A, Musica 4B, Musica 4C', N'Ajustar dinamica do ensaio 4.'),
-(5, N'Musica 5A, Musica 5B, Musica 5C', N'Ajustar dinamica do ensaio 5.'),
-(6, N'Musica 6A, Musica 6B, Musica 6C', N'Ajustar dinamica do ensaio 6.'),
-(7, N'Musica 7A, Musica 7B, Musica 7C', N'Ajustar dinamica do ensaio 7.'),
-(8, N'Musica 8A, Musica 8B, Musica 8C', N'Ajustar dinamica do ensaio 8.'),
-(9, N'Musica 9A, Musica 9B, Musica 9C', N'Ajustar dinamica do ensaio 9.'),
-(10, N'Musica 10A, Musica 10B, Musica 10C', N'Ajustar dinamica do ensaio 10.');
+;WITH meses AS (
+    SELECT mes, quantidade FROM (VALUES
+        (1,6),(2,7),(3,8),(4,9),(5,10),(6,11),
+        (7,12),(8,13),(9,14),(10,11),(11,10),(12,9)
+    ) v(mes,quantidade)
+), numeros AS (
+    SELECT numero FROM (VALUES (1),(2),(3),(4),(5),(6),(7),
+        (8),(9),(10),(11),(12),(13),(14)) v(numero)
+), sequencias AS (
+    SELECT m.mes, n.numero,
+        CONVERT(INT,ROW_NUMBER() OVER (ORDER BY m.mes,n.numero)) AS sequencia
+    FROM meses m JOIN numeros n ON n.numero<=m.quantidade
+)
+INSERT INTO @eventos
+SELECT s.sequencia,
+    CONCAT(N'SIM-2026-',RIGHT(CONCAT(N'000',s.sequencia),3),N' - ',
+        CASE t.codigo_tipo WHEN 1 THEN N'Ensaio' WHEN 2 THEN N'Show' ELSE N'Reuniao' END),
+    t.codigo_tipo,
+    DATEADD(HOUR,CASE t.codigo_tipo WHEN 2 THEN 19 ELSE 18 END,
+        CONVERT(DATETIME2,DATEFROMPARTS(2026,s.mes,s.numero*2))),
+    CASE t.codigo_tipo WHEN 1 THEN 45+p.quantidade*15
+        WHEN 2 THEN 75+p.quantidade*15 ELSE 30+p.quantidade*10 END
+        + ((s.sequencia*11+s.mes*3)%5-2)*15,
+    p.quantidade, 1+(s.sequencia*3+s.mes)%10, 1+(s.sequencia-1)%20,
+    CASE WHEN s.sequencia%13=0 THEN N'CANCELADO'
+        WHEN s.mes<=10 THEN N'REALIZADO' ELSE N'AGENDADO' END
+FROM sequencias s
+CROSS APPLY (SELECT CASE WHEN s.sequencia%10<6 THEN 1
+    WHEN s.sequencia%10<9 THEN 2 ELSE 3 END AS codigo_tipo) t
+CROSS APPLY (SELECT 2+(s.sequencia*7+s.mes)%
+    (CASE WHEN t.codigo_tipo=3 THEN 5 ELSE 9 END) AS quantidade) p;
 
-INSERT INTO shows (codigo_agenda, codigo_cidade) VALUES
-(11, 1),
-(12, 2),
-(13, 3),
-(14, 4),
-(15, 5),
-(16, 6),
-(17, 7),
-(18, 8),
-(19, 9),
-(20, 10);
+DECLARE @inseridos TABLE (codigo_agenda INT NOT NULL, titulo NVARCHAR(120) NOT NULL);
+INSERT INTO agenda (titulo,descricao,dt_hora_in,dt_hora_fim,codigo_local,
+    cod_membro_criador,codigo_tipo,status,criado_em)
+OUTPUT inserted.codigo_agenda,inserted.titulo INTO @inseridos
+SELECT titulo,N'Dado simulado para demonstracao e analise estatistica; nao representa atividade real.',
+    inicio,DATEADD(MINUTE,duracao_minutos,inicio),codigo_local,criador,codigo_tipo,status,
+    DATEADD(DAY,-7,inicio)
+FROM @eventos;
 
-INSERT INTO reunioes (codigo_agenda, pauta) VALUES
-(21, N'Organizacao de repertorio, horarios, transporte e divulgacao do evento 1.'),
-(22, N'Organizacao de repertorio, horarios, transporte e divulgacao do evento 2.'),
-(23, N'Organizacao de repertorio, horarios, transporte e divulgacao do evento 3.'),
-(24, N'Organizacao de repertorio, horarios, transporte e divulgacao do evento 4.'),
-(25, N'Organizacao de repertorio, horarios, transporte e divulgacao do evento 5.'),
-(26, N'Organizacao de repertorio, horarios, transporte e divulgacao do evento 6.'),
-(27, N'Organizacao de repertorio, horarios, transporte e divulgacao do evento 7.'),
-(28, N'Organizacao de repertorio, horarios, transporte e divulgacao do evento 8.'),
-(29, N'Organizacao de repertorio, horarios, transporte e divulgacao do evento 9.'),
-(30, N'Organizacao de repertorio, horarios, transporte e divulgacao do evento 10.');
+INSERT INTO ensaios (codigo_agenda,repertorio,observacao)
+SELECT i.codigo_agenda,N'Repertorio demonstrativo: abertura, balada e encerramento.',
+    N'Ensaio simulado com duracao e formacao variadas.'
+FROM @eventos e JOIN @inseridos i ON i.titulo=e.titulo WHERE e.codigo_tipo=1;
 
--- Ensaios de outubro realizados; shows de novembro e reunioes de dezembro agendados.
-UPDATE agenda SET status = N'REALIZADO' WHERE codigo_agenda BETWEEN 1 AND 10;
-UPDATE agenda SET codigo_tipo = 2 WHERE codigo_agenda BETWEEN 11 AND 20;
-UPDATE agenda SET codigo_tipo = 3 WHERE codigo_agenda BETWEEN 21 AND 30;
+INSERT INTO shows (codigo_agenda,codigo_cidade)
+SELECT i.codigo_agenda,l.codigo_cidade
+FROM @eventos e JOIN @inseridos i ON i.titulo=e.titulo
+JOIN locais l ON l.codigo_local=e.codigo_local WHERE e.codigo_tipo=2;
 
-INSERT INTO participacao_evento (codigo_agenda, cod_musico, status_confirmacao, presente, data_resposta) VALUES
-(1, 1, N'CONFIRMADO', 1, '2026-09-30T12:00:00'), (2, 2, N'CONFIRMADO', 1, '2026-09-30T12:00:00'),
-(3, 3, N'CONFIRMADO', 1, '2026-09-30T12:00:00'), (4, 4, N'CONFIRMADO', 1, '2026-09-30T12:00:00'),
-(5, 5, N'CONFIRMADO', 1, '2026-09-30T12:00:00'), (6, 6, N'CONFIRMADO', 1, '2026-09-30T12:00:00'),
-(7, 7, N'CONFIRMADO', 1, '2026-09-30T12:00:00'), (8, 8, N'CONFIRMADO', 1, '2026-09-30T12:00:00'),
-(9, 9, N'CONFIRMADO', 1, '2026-09-30T12:00:00'), (10, 10, N'CONFIRMADO', 1, '2026-09-30T12:00:00'),
-(11, 1, N'PENDENTE', NULL, NULL), (12, 2, N'PENDENTE', NULL, NULL),
-(13, 3, N'PENDENTE', NULL, NULL), (14, 4, N'PENDENTE', NULL, NULL),
-(15, 5, N'PENDENTE', NULL, NULL), (16, 6, N'PENDENTE', NULL, NULL),
-(17, 7, N'PENDENTE', NULL, NULL), (18, 8, N'PENDENTE', NULL, NULL),
-(19, 9, N'PENDENTE', NULL, NULL), (20, 10, N'PENDENTE', NULL, NULL),
-(21, 1, N'PENDENTE', NULL, NULL), (22, 2, N'PENDENTE', NULL, NULL),
-(23, 3, N'PENDENTE', NULL, NULL), (24, 4, N'PENDENTE', NULL, NULL),
-(25, 5, N'PENDENTE', NULL, NULL), (26, 6, N'PENDENTE', NULL, NULL),
-(27, 7, N'PENDENTE', NULL, NULL), (28, 8, N'PENDENTE', NULL, NULL),
-(29, 9, N'PENDENTE', NULL, NULL), (30, 10, N'PENDENTE', NULL, NULL);
+INSERT INTO reunioes (codigo_agenda,pauta)
+SELECT i.codigo_agenda,N'Planejamento simulado de repertorio, agenda, transporte e divulgacao.'
+FROM @eventos e JOIN @inseridos i ON i.titulo=e.titulo WHERE e.codigo_tipo=3;
+
+-- De 2 a 10 musicos por evento (reunioes: de 2 a 6), alternando os convidados.
+-- NULL em presente significa sem lancamento, inclusive em eventos nao realizados.
+INSERT INTO participacao_evento (codigo_agenda,cod_musico,status_confirmacao,presente,data_resposta)
+SELECT i.codigo_agenda,1+(n.numero+e.sequencia-2)%10,c.status_confirmacao,
+    CASE WHEN e.status<>N'REALIZADO' OR v.valor IN (0,3) THEN NULL
+        WHEN v.valor BETWEEN 1 AND 6 THEN 0 ELSE 1 END,
+    CASE WHEN c.status_confirmacao=N'PENDENTE' THEN NULL
+        ELSE DATEADD(HOUR,-(12+(e.sequencia+n.numero)%5*6),e.inicio) END
+FROM @eventos e JOIN @inseridos i ON i.titulo=e.titulo
+JOIN (VALUES (1),(2),(3),(4),(5),(6),(7),(8),(9),(10)) n(numero)
+    ON n.numero<=e.participantes
+CROSS APPLY (SELECT (e.sequencia*7+n.numero*3+MONTH(e.inicio))%20 AS valor) v
+CROSS APPLY (SELECT CASE WHEN v.valor=0 OR (e.status<>N'REALIZADO' AND v.valor>=12)
+    THEN N'PENDENTE' WHEN v.valor IN (1,2) THEN N'RECUSADO'
+    ELSE N'CONFIRMADO' END AS status_confirmacao) c;
 
     COMMIT TRANSACTION;
 END TRY
