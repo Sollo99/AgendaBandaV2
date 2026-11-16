@@ -26,15 +26,12 @@ GO
 ALTER LOGIN agenda_user WITH DEFAULT_DATABASE = AgendaBanda;
 GO
 
--- Preparacao da base dedicada de avaliacao: este login e dono somente de AgendaBanda.
--- A propriedade permite RESTORE da propria base, sem dbcreator ou sysadmin para a aplicacao.
 ALTER AUTHORIZATION ON DATABASE::AgendaBanda TO agenda_user;
 GO
 
 USE master;
 GO
 
--- Usa uma pasta ja preparada pelo servico SQL Server, sem criar diretorios no Java.
 CREATE OR ALTER FUNCTION dbo.fn_agendabanda_diretorio_backup()
 RETURNS NVARCHAR(4000)
 AS
@@ -46,8 +43,6 @@ BEGIN
 END;
 GO
 
--- Modulo restrito de inspecao: sem caminho livre, SQL dinamico ou comandos de escrita.
--- A permissao adicional de CREATE DATABASE existe apenas durante este modulo assinado.
 CREATE OR ALTER PROCEDURE dbo.usp_agendabanda_inspecionar_backup
     @codigo UNIQUEIDENTIFIER, @operacao VARCHAR(10)
 AS
@@ -67,7 +62,6 @@ BEGIN
 END;
 GO
 
--- Certificado exclusivo deste modulo. O login de certificado nao aceita conexoes.
 IF EXISTS (SELECT 1 FROM sys.server_principals WHERE name=N'AgendaBanda_InspecaoBackup' AND type<>'C')
     THROW 50001,N'Existe um login diferente com o nome reservado para a inspecao de backups.',1;
 IF CERT_ID(N'AgendaBanda_InspecaoBackup') IS NOT NULL

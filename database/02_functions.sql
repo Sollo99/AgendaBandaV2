@@ -1,9 +1,7 @@
 USE AgendaBanda;
 GO
 
--- Funcoes utilizadas pelas consultas da aplicacao.
 
--- Escalar: percentual somente entre presencas/ausencias efetivamente lancadas.
 CREATE OR ALTER FUNCTION dbo.fn_taxa_presenca_musico
 (@musico INT, @inicio DATETIME2, @fim DATETIME2)
 RETURNS DECIMAL(5,2)
@@ -15,12 +13,10 @@ BEGIN
     FROM participacao_evento p JOIN agenda a ON a.codigo_agenda = p.codigo_agenda
     WHERE p.cod_musico = @musico AND a.status = N'REALIZADO' AND p.presente IS NOT NULL
       AND a.dt_hora_in >= @inicio AND a.dt_hora_in < @fim;
-    -- NULL significa ausencia de lancamentos, e nao taxa de zero.
     RETURN @taxa;
 END;
 GO
 
--- TVF inline: cada evento sobreposto e seus musicos; preserva evento sem musico.
 CREATE OR ALTER FUNCTION dbo.fn_conflitos_agendamento
 (@inicio DATETIME2, @fim DATETIME2, @ignorar_agenda INT)
 RETURNS TABLE
@@ -33,7 +29,6 @@ AS RETURN (
 );
 GO
 
--- TVF com variavel-tabela: inicializa todos os tipos e preenche seus indicadores.
 CREATE OR ALTER FUNCTION dbo.fn_resumo_periodo (@inicio DATETIME2, @fim DATETIME2)
 RETURNS @resultado TABLE (
     codigo_tipo INT, tipo_nome NVARCHAR(50), total INT, agendados INT,

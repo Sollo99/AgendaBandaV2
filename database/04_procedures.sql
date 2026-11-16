@@ -1,7 +1,6 @@
 USE AgendaBanda;
 GO
 
--- Operacoes transacionais chamadas pelos repositorios Java.
 
 IF (SELECT compatibility_level FROM sys.databases WHERE name = DB_NAME()) < 130
     THROW 50001, N'O banco exige nivel de compatibilidade 130 ou superior para OPENJSON.', 1;
@@ -12,8 +11,6 @@ AS
 BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
-    -- JDBC pode estar em transacao implicita ainda sem a primeira leitura de tabela.
-    -- Inicia essa transacao antes de decidir quem controla o COMMIT.
     DECLARE @iniciar_transacao INT;
     IF @@TRANCOUNT=0 AND (2 & @@OPTIONS)=2
         SELECT TOP (1) @iniciar_transacao=codigo FROM membros;
@@ -46,7 +43,6 @@ BEGIN
         IF @status=N'REALIZADO' OR EXISTS (SELECT 1 FROM participacao_evento WHERE codigo_agenda=@id AND presente IS NOT NULL)
             THROW 50001, N'Nao e possivel excluir um evento realizado ou com presenca registrada.', 1;
 
-        -- Captura os detalhes antes do DELETE em cascata e complementa o historico da trigger.
         DECLARE @detalhes NVARCHAR(MAX) = (
             SELECT e.repertorio,e.observacao,r.pauta,s.codigo_cidade FROM agenda a
             LEFT JOIN ensaios e ON e.codigo_agenda=a.codigo_agenda
@@ -68,7 +64,6 @@ BEGIN
 END;
 GO
 
--- NULL preserva o valor atual; a edicao completa envia os dois valores explicitamente.
 CREATE OR ALTER PROCEDURE dbo.usp_alterar_acesso_membro
     @id INT, @administrador BIT = NULL, @ativo BIT = NULL
 AS
@@ -82,7 +77,6 @@ BEGIN
     IF @propria=1 BEGIN TRANSACTION; ELSE SAVE TRANSACTION alterar_acesso_membro;
     BEGIN TRY
         DECLARE @resultado_lock INT;
-        -- Mesmo recurso usado pelas decisoes de cadastro e recuperacao da aplicacao.
         EXEC @resultado_lock = sys.sp_getapplock @Resource=N'AgendaBanda:administradores',
             @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=5000;
         IF @resultado_lock<0 THROW 50004, N'Administracao em uso. Aguarde e tente novamente.', 1;
@@ -102,7 +96,6 @@ BEGIN
             AND NOT EXISTS (SELECT 1 FROM membros WITH (UPDLOCK,HOLDLOCK)
                 WHERE codigo<>@id AND administrador=1 AND ativo=1)
             THROW 50001, N'E necessario manter pelo menos um administrador ativo.', 1;
-        -- Evita um historico de UPDATE sem mudanca de acesso.
         IF @admin_anterior<>@administrador OR @ativo_anterior<>@ativo
             UPDATE membros SET administrador=@administrador, ativo=@ativo WHERE codigo=@id;
         IF @propria=1 COMMIT TRANSACTION;
@@ -152,7 +145,6 @@ BEGIN
             THROW 50001, N'Lista de musicos invalida.', 1;
         DECLARE @musicos TABLE (codigo INT PRIMARY KEY);
         INSERT INTO @musicos SELECT DISTINCT CONVERT(INT, value) FROM OPENJSON(@musicos_json);
-        -- Ordem binaria identica no Java; locks valem ate COMMIT/ROLLBACK.
         DECLARE @recursos TABLE (nome NVARCHAR(255) COLLATE Latin1_General_100_BIN2 PRIMARY KEY);
         INSERT INTO @recursos SELECT CONCAT(N'AgendaBanda:local:', @local)
             UNION SELECT CONCAT(N'AgendaBanda:musico:', codigo) FROM @musicos;
@@ -254,7 +246,6 @@ BEGIN
                 THROW 50001, N'Lista de musicos invalida.', 1;
             INSERT INTO @musicos SELECT DISTINCT CONVERT(INT, value) FROM OPENJSON(@musicos_json);
         END;
-        -- Ordem binaria identica no Java; locks valem ate COMMIT/ROLLBACK.
         DECLARE @recursos TABLE (nome NVARCHAR(255) COLLATE Latin1_General_100_BIN2 PRIMARY KEY);
         INSERT INTO @recursos SELECT CONCAT(N'AgendaBanda:local:', @local)
             UNION SELECT CONCAT(N'AgendaBanda:musico:', codigo) FROM @musicos
@@ -273,7 +264,6 @@ BEGIN
             AND NOT EXISTS (SELECT 1 FROM @musicos ids WHERE ids.codigo = p.cod_musico)
             AND (@anterior = N'REALIZADO' OR @status = N'REALIZADO' OR p.presente IS NOT NULL))
             THROW 50001, N'Nao e possivel remover participantes de evento realizado ou com presenca registrada.', 1;
-        -- Musicos inativos podem permanecer no historico; apenas novas inclusoes exigem atividade.
         IF EXISTS (SELECT 1 FROM @musicos ids LEFT JOIN musicos mu ON mu.codigo = ids.codigo
             LEFT JOIN membros m ON m.codigo = mu.codigo WHERE mu.codigo IS NULL OR
             ((m.ativo = 0 OR m.status_cadastro <> N'APROVADO') AND NOT EXISTS (
@@ -351,7 +341,6 @@ BEGIN
         EXEC @resultado_evento = sys.sp_getapplock @Resource=@recurso_evento, @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=5000;
         IF @resultado_evento < 0 THROW 50004, N'Outro usuario esta alterando este evento. Tente novamente.', 1;
         SELECT @inicio = dt_hora_in, @evento_status = status FROM agenda WITH (UPDLOCK, HOLDLOCK) WHERE codigo_agenda = @agenda;
-        -- O inicio pode ter passado enquanto a requisicao aguardava o lock.
         SET @agora = CONVERT(DATETIME2, SYSDATETIMEOFFSET() AT TIME ZONE 'E. South America Standard Time');
         IF @inicio IS NULL THROW 50001, N'Evento nao encontrado.', 1;
         IF @propria IS NULL THROW 50001, N'Informe o modo de atualizacao da participacao.', 1;
@@ -362,7 +351,6 @@ BEGIN
             THROW 50001, N'Status de confirmacao invalido.', 1;
         IF @propria = 1 AND (@evento_status <> N'AGENDADO' OR @inicio <= @agora OR @status IS NULL)
             THROW 50001, N'A confirmacao so pode ser alterada antes do inicio de um evento agendado.', 1;
-        -- O modo proprio ignora o campo de presenca enviado pelo cliente.
         IF @propria = 1 SET @presente = NULL;
         IF @presente IS NOT NULL AND (@evento_status = N'CANCELADO' OR @inicio > @agora)
             THROW 50001, N'Presenca ou ausencia so pode ser registrada apos o inicio de evento nao cancelado.', 1;
@@ -561,7 +549,6 @@ BEGIN
     BEGIN TRY
         IF @agora IS NULL OR NULLIF(LTRIM(RTRIM(@motivo)),N'') IS NULL THROW 50001,N'Informe a data e o motivo do encerramento.',1;
         DECLARE @responsavel INT=TRY_CONVERT(INT,SESSION_CONTEXT(N'membro_responsavel')),@codigo INT,@resultado_lock INT;
-        -- O proprio membro pode estar sendo desativado na mesma edicao em que troca a senha.
         IF @responsavel<>@membro
         BEGIN
             EXEC @resultado_lock=sys.sp_getapplock @Resource=N'AgendaBanda:administradores',
@@ -624,7 +611,6 @@ BEGIN
 END;
 GO
 
--- Eventos de autenticacao sao explicitos: limpeza de sessao vencida nao representa logout.
 CREATE OR ALTER PROCEDURE dbo.usp_registrar_autenticacao
     @operacao NVARCHAR(20), @membro INT=NULL, @motivo NVARCHAR(30), @recurso NVARCHAR(20)
 AS
@@ -648,7 +634,6 @@ BEGIN
         OR (@operacao=N'LOGOUT' AND @recurso<>N'LOGOUT')
         THROW 50001,N'Recurso incompativel com a operacao de autenticacao.',1;
     DECLARE @ator INT=NULL;
-    -- Login recusado nunca atribui a tentativa ao titular da conta.
     IF @operacao<>N'LOGIN_FALHOU'
         SELECT @ator=codigo FROM membros WHERE codigo=@membro;
     IF @operacao IN (N'LOGIN',N'LOGOUT') AND @ator IS NULL

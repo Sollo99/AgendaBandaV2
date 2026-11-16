@@ -1,10 +1,6 @@
 USE AgendaBanda;
 GO
 
--- Opcional, depois da instalacao 00 a 06. Execute o arquivo inteiro no SSMS.
--- Apenas consulta os dados da aplicacao; a tabela #base existe somente nesta sessao.
--- Cada resultado pode ser copiado COM CABECALHOS para uma aba do Excel.
--- Roteiro e formulas: ../ESTATISTICA.md.
 SET NOCOUNT ON;
 DECLARE @inicio DATE='20260101', @fim DATE='20261231';
 DECLARE @somente_simulados BIT=1;
@@ -14,8 +10,6 @@ IF @fim<@inicio OR @fim='99991231'
 
 DROP TABLE IF EXISTS #base_estatistica;
 
--- Agregar as participacoes ANTES do JOIN preserva uma linha por evento.
--- A duracao e a programada no calendario; nao existe medicao da duracao efetiva.
 SELECT a.codigo_agenda,
     CASE WHEN a.titulo LIKE N'SIM-2026-%' THEN N'SIMULADO' ELSE N'OUTRO' END AS origem,
     a.titulo,CONVERT(CHAR(10),a.dt_hora_in,23) AS data_evento,
@@ -26,7 +20,6 @@ SELECT a.codigo_agenda,
     COALESCE(p.confirmados,0) AS confirmados,
     COALESCE(p.recusados,0) AS recusados,
     COALESCE(p.pendentes,0) AS pendentes,
-    -- Presencas/ausencias/sem registro so se aplicam a eventos realizados.
     CASE WHEN a.status=N'REALIZADO' THEN COALESCE(p.presencas,0) END AS presencas,
     CASE WHEN a.status=N'REALIZADO' THEN COALESCE(p.ausencias,0) END AS ausencias,
     CASE WHEN a.status=N'REALIZADO' THEN COALESCE(p.sem_registro,0) END AS sem_registro,
@@ -51,15 +44,11 @@ LEFT JOIN (
 WHERE a.dt_hora_in>=@inicio AND a.dt_hora_in<DATEADD(DAY,1,@fim)
     AND (@somente_simulados=0 OR a.titulo LIKE N'SIM-2026-%');
 
--- 1. Aba BaseGeral: calendario completo, incluindo agenda e cancelamentos.
 SELECT * FROM #base_estatistica ORDER BY data_evento,codigo_agenda;
 
--- 2. Aba Eventos: apenas realizados, para medidas de posicao e dispersao.
--- A duracao continua sendo a PROGRAMADA, mesmo quando o evento foi realizado.
 SELECT * FROM #base_estatistica WHERE status=N'REALIZADO'
 ORDER BY data_evento,codigo_agenda;
 
--- 3. Aba Mensal: grafico de linhas. Inclui meses sem eventos no periodo.
 ;WITH meses AS (
     SELECT DATEFROMPARTS(YEAR(@inicio),MONTH(@inicio),1) AS inicio_mes
     UNION ALL
@@ -74,15 +63,11 @@ FROM meses m LEFT JOIN #base_estatistica b ON b.mes=CONVERT(CHAR(7),m.inicio_mes
 GROUP BY m.inicio_mes ORDER BY m.inicio_mes
 OPTION (MAXRECURSION 0);
 
--- 4. Aba Tipos: frequencias absoluta e relativa, para barras e setores.
--- O denominador considera somente os eventos realizados do periodo.
 SELECT tipo,COUNT(*) AS frequencia_absoluta,
     CAST(100.0*COUNT(*)/SUM(COUNT(*)) OVER () AS DECIMAL(6,2)) AS frequencia_percentual
 FROM #base_estatistica WHERE status=N'REALIZADO'
 GROUP BY tipo ORDER BY tipo;
 
--- 5. Aba Frequencias: histograma em intervalos de 30 minutos [inferior,superior).
--- Intervalos vazios tambem aparecem; um valor no limite superior vai para a proxima faixa.
 DECLARE @maior_duracao INT=COALESCE((SELECT MAX(duracao_minutos)
     FROM #base_estatistica WHERE status=N'REALIZADO'),0);
 ;WITH faixas AS (
@@ -105,9 +90,6 @@ SELECT limite_inferior,limite_superior,
 FROM frequencias ORDER BY limite_inferior
 OPTION (MAXRECURSION 0);
 
--- 6. Aba Regressao: X=musicos previstos, Y=duracao programada em minutos.
--- Somente ENSAIOS realizados, para nao misturar duracoes de categorias diferentes.
--- Relacao simulada com variacao adicional: nao e evidencia de causalidade real.
 SELECT codigo_agenda,titulo,participantes_previstos AS x_participantes,
     duracao_minutos AS y_duracao_minutos
 FROM #base_estatistica WHERE status=N'REALIZADO' AND tipo=N'ENSAIO'

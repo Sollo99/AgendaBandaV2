@@ -1,7 +1,6 @@
 USE AgendaBanda;
 GO
 
--- Views utilizadas pela agenda, autenticacao e relatorios.
 
 CREATE OR ALTER VIEW dbo.vw_agenda_detalhada AS
 SELECT a.codigo_agenda, a.titulo, a.descricao, a.dt_hora_in, a.dt_hora_fim, a.status,
@@ -29,7 +28,6 @@ LEFT JOIN (
 ) p ON p.codigo_agenda = a.codigo_agenda;
 GO
 
--- Uma linha por musico/evento: permite filtrar o periodo antes de agregar no Java/SQL.
 CREATE OR ALTER VIEW dbo.vw_presenca_musicos AS
 SELECT mu.codigo AS codigo_musico, m.nome AS musico_nome, mu.instrumento,
     a.codigo_agenda, a.titulo, a.dt_hora_in, a.status AS evento_status,
@@ -47,7 +45,6 @@ JOIN tipos_evento t ON t.codigo_tipo = a.codigo_tipo
 JOIN locais l ON l.codigo_local = a.codigo_local;
 GO
 
--- Uma linha por local/evento, incluindo locais sem agenda.
 CREATE OR ALTER VIEW dbo.vw_ocupacao_locais AS
 SELECT l.codigo_local, l.nome AS local_nome, c.nome AS cidade_nome, c.uf,
     a.codigo_agenda, a.dt_hora_in, a.status,
@@ -76,7 +73,6 @@ FROM (
 ) h LEFT JOIN membros m ON m.codigo = h.membro_responsavel;
 GO
 
--- O prazo e aplicado na consulta parametrizada; desativacao e recusa retiram o acesso imediatamente.
 CREATE OR ALTER VIEW dbo.vw_sessoes_membros AS
 SELECT s.codigo_sessao,s.token_hash,s.criado_em,s.expira_em,
     m.codigo,m.nome,m.login,m.administrador

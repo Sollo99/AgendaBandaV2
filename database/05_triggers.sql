@@ -1,7 +1,6 @@
 USE AgendaBanda;
 GO
 
--- Auditoria automatica das alteracoes realizadas no banco.
 
 CREATE OR ALTER TRIGGER dbo.trg_agenda_historico ON dbo.agenda
 AFTER INSERT, UPDATE, DELETE
@@ -48,7 +47,6 @@ BEGIN
     OUTER APPLY (SELECT CASE WHEN i.codigo_agenda IS NOT NULL THEN (
         SELECT i.codigo_agenda, i.cod_musico, i.status_confirmacao, i.presente, i.data_resposta
         FOR JSON PATH, INCLUDE_NULL_VALUES, WITHOUT_ARRAY_WRAPPER) END AS json_dados) novo
-    -- A alteracao de observacao gera operacao, mas seu texto nao e copiado.
     WHERE d.codigo_agenda IS NULL OR i.codigo_agenda IS NULL
        OR antigo.json_dados COLLATE Latin1_General_100_BIN2 <> novo.json_dados COLLATE Latin1_General_100_BIN2
        OR ISNULL(d.observacao,N'') COLLATE Latin1_General_100_BIN2 <> ISNULL(i.observacao,N'') COLLATE Latin1_General_100_BIN2;
@@ -62,7 +60,6 @@ BEGIN
     SET NOCOUNT ON;
     DECLARE @responsavel INT = TRY_CONVERT(INT, SESSION_CONTEXT(N'membro_responsavel'));
     DECLARE @agora DATETIME2 = CONVERT(DATETIME2, SYSDATETIMEOFFSET() AT TIME ZONE 'E. South America Standard Time');
-    -- Lista explicita: nunca copiar senha/hash, CPF, email, login, cookies ou tokens.
     INSERT INTO historico_operacoes (membro_responsavel, entidade_afetada, codigo_registro_afetado, tipo_operacao, data_hora, dados_anteriores, dados_novos)
     SELECT @responsavel, N'MEMBRO', CONVERT(NVARCHAR(100), COALESCE(i.codigo, d.codigo)),
         CASE WHEN d.codigo IS NULL THEN N'INSERT' WHEN i.codigo IS NULL THEN N'DELETE' ELSE N'UPDATE' END,
@@ -78,15 +75,12 @@ BEGIN
         FOR JSON PATH, INCLUDE_NULL_VALUES, WITHOUT_ARRAY_WRAPPER) END AS json_dados) novo
     WHERE d.codigo IS NULL OR i.codigo IS NULL OR antigo.json_dados COLLATE Latin1_General_100_BIN2 <> novo.json_dados COLLATE Latin1_General_100_BIN2;
 
-    -- Audita a troca da credencial sem armazenar valores antigos, novos ou hashes.
-    -- Separado do retrato cadastral para registrar tambem mudancas apenas de senha.
     INSERT INTO historico_operacoes (membro_responsavel, entidade_afetada, codigo_registro_afetado, tipo_operacao, data_hora, dados_anteriores, dados_novos)
     SELECT @responsavel, N'MEMBRO', CONVERT(NVARCHAR(100), i.codigo), N'UPDATE',
         @agora, NULL, N'{"senha_alterada":true}'
     FROM inserted i INNER JOIN deleted d ON d.codigo = i.codigo
     WHERE DATALENGTH(d.senha)<>DATALENGTH(i.senha) OR d.senha COLLATE Latin1_General_100_BIN2 <> i.senha COLLATE Latin1_General_100_BIN2;
 
-    -- Marca quais identificadores mudaram sem copiar valores antigos, novos ou hashes.
     INSERT INTO historico_operacoes (membro_responsavel, entidade_afetada, codigo_registro_afetado, tipo_operacao, data_hora, dados_anteriores, dados_novos)
     SELECT @responsavel,N'MEMBRO',CONVERT(NVARCHAR(100),i.codigo),N'UPDATE',@agora,NULL,
         (SELECT flags.cpf_alterado,flags.email_alterado,flags.login_alterado FOR JSON PATH,WITHOUT_ARRAY_WRAPPER)
@@ -249,7 +243,6 @@ BEGIN
                 OR DATALENGTH(d.motivo_encerramento)<>DATALENGTH(i.motivo_encerramento)
                 OR d.motivo_encerramento COLLATE Latin1_General_100_BIN2<>i.motivo_encerramento COLLATE Latin1_General_100_BIN2)
             THEN 1 ELSE 0 END AS BIT) AS motivo_alterado) flags
-    -- Somente os marcadores entram no JSON; nao copiar hash ou texto livre.
     CROSS APPLY (SELECT CASE WHEN flags.credencial_alterada=1
         THEN JSON_MODIFY(novo.json_dados,'$.credencial_alterada',CAST(1 AS BIT)) ELSE novo.json_dados END AS json_dados) credencial
     CROSS APPLY (SELECT CASE WHEN flags.motivo_alterado=1

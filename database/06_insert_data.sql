@@ -1,11 +1,7 @@
 USE AgendaBanda;
 GO
 
--- Dados inteiramente simulados para demonstracao e para a etapa de Estatistica.
--- Executar uma unica vez, depois dos scripts 00 a 05, em uma base recem-preparada.
--- A carga nao apaga nem substitui registros de uma instalacao existente.
 SET NOCOUNT ON;
--- A carga depende da auditoria instalada: todos os exemplos geram historicos pelas triggers.
 SET XACT_ABORT ON;
 IF (SELECT COUNT(*) FROM sys.triggers WHERE is_disabled=0 AND object_id IN (
     OBJECT_ID(N'dbo.trg_agenda_historico',N'TR'),
@@ -25,7 +21,6 @@ IF EXISTS (SELECT 1 FROM membros) OR EXISTS (SELECT 1 FROM cidades)
     OR EXISTS (SELECT 1 FROM agenda)
     THROW 50001,N'A carga inicial exige uma base vazia. Os dados existentes foram preservados; nao execute novamente o script 06.',1;
 
--- Carga de instalacao nao representa uma acao de um usuario autenticado.
 EXEC sys.sp_set_session_context @key=N'membro_responsavel',@value=NULL;
 
 BEGIN TRY
@@ -108,11 +103,6 @@ INSERT INTO tipos_evento (nome, descricao, categoria_detalhe, ativo) VALUES
 (N'SHOW', N'Apresentação pública da banda.', N'SHOW', 1),
 (N'REUNIAO', N'Encontro de organização e planejamento.', N'REUNIAO', 1);
 
--- Cenario fixo de 2026: 120 eventos, com volumes mensais diferentes e sem sobreposicao.
--- Janeiro a outubro: realizados, exceto cancelamentos. Novembro/dezembro: agenda futura
--- no cenario de referencia (01/11/2026). As datas nao mudam conforme o dia da instalacao.
--- A duracao PROGRAMADA depende de participantes previstos, tipo e variacao adicional.
--- Essa relacao foi construida para o exercicio; nao comprova causalidade no mundo real.
 DECLARE @eventos TABLE (
     sequencia INT PRIMARY KEY,
     titulo NVARCHAR(120) NOT NULL,
@@ -180,8 +170,6 @@ INSERT INTO reunioes (codigo_agenda,pauta)
 SELECT i.codigo_agenda,N'Planejamento simulado de repertorio, agenda, transporte e divulgacao.'
 FROM @eventos e JOIN @inseridos i ON i.titulo=e.titulo WHERE e.codigo_tipo=3;
 
--- De 2 a 10 musicos por evento (reunioes: de 2 a 6), alternando os convidados.
--- NULL em presente significa sem lancamento, inclusive em eventos nao realizados.
 INSERT INTO participacao_evento (codigo_agenda,cod_musico,status_confirmacao,presente,data_resposta)
 SELECT i.codigo_agenda,1+(n.numero+e.sequencia-2)%10,c.status_confirmacao,
     CASE WHEN e.status<>N'REALIZADO' OR v.valor IN (0,3) THEN NULL

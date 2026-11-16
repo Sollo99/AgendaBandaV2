@@ -7,7 +7,6 @@ GO
 USE AgendaBanda;
 GO
 
--- Recriacao completa de banco novo: dependencias antes das tabelas.
 DROP PROCEDURE IF EXISTS dbo.usp_criar_evento;
 DROP PROCEDURE IF EXISTS dbo.usp_atualizar_evento;
 DROP PROCEDURE IF EXISTS dbo.usp_atualizar_participacao;
@@ -237,7 +236,6 @@ GO
 
 CREATE TABLE historico_eventos (
     codigo_historico BIGINT IDENTITY(1,1) PRIMARY KEY,
-    -- Identificador original sem FK: a exclusao do evento nao apaga a auditoria.
     codigo_agenda INT NOT NULL,
     membro_responsavel INT NULL,
     tipo_operacao NVARCHAR(20) NOT NULL,
@@ -253,7 +251,6 @@ CREATE TABLE historico_operacoes (
     codigo_operacao BIGINT IDENTITY(1,1) PRIMARY KEY,
     membro_responsavel INT NULL,
     entidade_afetada NVARCHAR(50) NOT NULL,
-    -- Texto permite a chave composta agenda:musico.
     codigo_registro_afetado NVARCHAR(100) NOT NULL,
     tipo_operacao NVARCHAR(20) NOT NULL,
     data_hora DATETIME2 NOT NULL,

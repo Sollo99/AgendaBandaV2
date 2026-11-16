@@ -19,6 +19,7 @@ __tests__/
 .idea/
 .vscode/
 *.iml
+.~lock.*#
 
 # Environment
 .env
@@ -35,6 +36,7 @@ ETAPAS.md
 RELATORIO_*.md
 
 # Packed
+*.xlsx
 *.tar
 AgendaBanda-fonte*.zip
 *.tmp
