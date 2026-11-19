@@ -45,7 +45,6 @@ public class TokenService {
         return token;
     }
 
-    @Transactional
     public Optional<SessaoUsuario> buscarSessao(String token) {
         if (token == null || token.isBlank()) return Optional.empty();
         return consultas.buscarAtiva(hash(token), LocalDateTime.now(clock));
