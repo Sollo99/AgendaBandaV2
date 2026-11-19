@@ -123,6 +123,8 @@ public class AgendaSqlRepository {
 
     public void bloquearLocal(Integer id) { bloquearRecurso("AgendaBanda:local:" + id); }
 
+    public void bloquearTipoEvento(Integer id) { bloquearRecurso("AgendaBanda:tipo:" + id); }
+
     private void bloquearRecurso(String recurso) {
         Integer resultado = jdbc.queryForObject("""
                 DECLARE @resultado INT;

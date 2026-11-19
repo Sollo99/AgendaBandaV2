@@ -8,6 +8,7 @@ import br.com.fatec.agendabanda.dto.TipoEventoDto;
 import br.com.fatec.agendabanda.dto.TipoEventoRequest;
 import br.com.fatec.agendabanda.model.TipoEvento;
 import br.com.fatec.agendabanda.repository.AgendaRepository;
+import br.com.fatec.agendabanda.repository.AgendaSqlRepository;
 import br.com.fatec.agendabanda.repository.TipoEventoRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,12 +20,15 @@ import java.util.Locale;
 public class TipoEventoService {
     private final TipoEventoRepository tipoEventoRepository;
     private final AgendaRepository agendaRepository;
+    private final AgendaSqlRepository agendaSqlRepository;
     private final MapperService mapper;
     private final AuditoriaContexto auditoria;
 
-    public TipoEventoService(TipoEventoRepository tipoEventoRepository, AgendaRepository agendaRepository, MapperService mapper, AuditoriaContexto auditoria) {
+    public TipoEventoService(TipoEventoRepository tipoEventoRepository, AgendaRepository agendaRepository,
+                             AgendaSqlRepository agendaSqlRepository, MapperService mapper, AuditoriaContexto auditoria) {
         this.tipoEventoRepository = tipoEventoRepository;
         this.agendaRepository = agendaRepository;
+        this.agendaSqlRepository = agendaSqlRepository;
         this.mapper = mapper;
         this.auditoria = auditoria;
     }
@@ -50,6 +54,7 @@ public class TipoEventoService {
     @Transactional
     public TipoEventoDto atualizar(Integer id, TipoEventoRequest request) {
         auditoria.prepararDoRequest();
+        agendaSqlRepository.bloquearTipoEvento(id);
         var tipo = buscar(id);
         boolean tipoEmUso = agendaRepository.existsByTipoEventoCodigoTipo(id);
         if (tipoEmUso && !tipo.getNome().equalsIgnoreCase(request.nome().trim())) {
@@ -68,6 +73,7 @@ public class TipoEventoService {
     @Transactional
     public void excluir(Integer id) {
         auditoria.prepararDoRequest();
+        agendaSqlRepository.bloquearTipoEvento(id);
         buscar(id);
         if (agendaRepository.existsByTipoEventoCodigoTipo(id)) {
             throw new RegraNegocioException("O tipo está vinculado a eventos e não pode ser excluído.");

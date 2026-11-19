@@ -132,6 +132,9 @@ BEGIN
             THROW 50001, N'Titulo ou status do evento invalido.', 1;
         IF @status = N'REALIZADO' AND @fim > @agora
             THROW 50001, N'Um evento so pode ser marcado como realizado apos seu termino.', 1;
+        DECLARE @recurso_tipo NVARCHAR(255) = CONCAT(N'AgendaBanda:tipo:', @tipo), @resultado_tipo INT;
+        EXEC @resultado_tipo = sys.sp_getapplock @Resource=@recurso_tipo, @LockMode='Shared', @LockOwner='Transaction', @LockTimeout=5000;
+        IF @resultado_tipo < 0 THROW 50004, N'Tipo de evento em uso. Aguarde e tente novamente.', 1;
         SELECT @categoria = categoria_detalhe FROM tipos_evento WHERE codigo_tipo = @tipo AND ativo = 1;
         IF @categoria IS NULL THROW 50001, N'Tipo de evento inexistente ou inativo.', 1;
         IF NOT EXISTS (SELECT 1 FROM locais WHERE codigo_local = @local)
@@ -228,6 +231,9 @@ BEGIN
         IF EXISTS (SELECT 1 FROM participacao_evento WHERE codigo_agenda = @id AND presente IS NOT NULL)
             AND (@status = N'CANCELADO' OR @inicio > @agora)
             THROW 50001, N'Um evento com presenca registrada nao pode ser cancelado ou movido para o futuro.', 1;
+        DECLARE @recurso_tipo NVARCHAR(255) = CONCAT(N'AgendaBanda:tipo:', @tipo), @resultado_tipo INT;
+        EXEC @resultado_tipo = sys.sp_getapplock @Resource=@recurso_tipo, @LockMode='Shared', @LockOwner='Transaction', @LockTimeout=5000;
+        IF @resultado_tipo < 0 THROW 50004, N'Tipo de evento em uso. Aguarde e tente novamente.', 1;
         SELECT @categoria = categoria_detalhe FROM tipos_evento WHERE codigo_tipo = @tipo AND ativo = 1;
         IF @categoria IS NULL THROW 50001, N'Tipo de evento inexistente ou inativo.', 1;
         IF NOT EXISTS (SELECT 1 FROM locais WHERE codigo_local = @local)
