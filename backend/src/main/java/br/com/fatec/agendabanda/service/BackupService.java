@@ -8,6 +8,7 @@ import br.com.fatec.agendabanda.repository.BackupSqlRepository;
 import com.zaxxer.hikari.HikariDataSource;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.InvalidDataAccessApiUsageException;
 import org.springframework.stereotype.Service;
 import javax.sql.DataSource;
 import java.io.IOException;
@@ -127,7 +128,9 @@ public class BackupService {
             LoggerFactory.getLogger(BackupService.class).error("Falha na operação de backup {}.",r.codigo(),ex);
             try {
                 var atual=catalogo.obter(r.codigo());
-                String mensagem=ex instanceof RegraNegocioException || ex instanceof ConflitoException?ex.getMessage()
+                Throwable motivo = ex instanceof InvalidDataAccessApiUsageException && ex.getCause() instanceof RegraNegocioException
+                        ? ex.getCause() : ex;
+                String mensagem=motivo instanceof RegraNegocioException || motivo instanceof ConflitoException?motivo.getMessage()
                         :"A operação falhou. Confira a conexão, o espaço em disco e as permissões do SQL Server.";
                 if (r.tipo()==Tipo.RESTORE && manutencao.ativa()) mensagem="A restauração falhou e a aplicação permanece em manutenção. O responsável pelo SQL Server deve verificar o banco antes de reiniciar o backend.";
                 catalogo.atualizar(atual.atualizar(Estado.FALHOU,mensagem,agora(),atual.tamanhoBytes(),atual.assinaturaSchema()));

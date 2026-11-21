@@ -17,7 +17,7 @@ import java.util.*;
 @Repository
 public class BackupSqlRepository {
     public record Arquivo(long tamanhoBytes,String assinaturaSchema) {}
-    private record ArquivoBanco(int id,String tipo,String nome,String caminho) {}
+    private record ArquivoBanco(String tipo,String caminho) {}
     private final BackupConfig config;
     private final DataSource aplicacao;
     public BackupSqlRepository(BackupConfig config,DataSource aplicacao) { this.config=config; this.aplicacao=aplicacao; }
@@ -120,25 +120,28 @@ public class BackupSqlRepository {
         }
     }
     public void restaurar(Connection c,Registro registro,Runnable antesDeAlterar) throws SQLException {
-        List<ArquivoBanco> atuais=new ArrayList<>();
-        try(PreparedStatement s=c.prepareStatement("SELECT file_id,type_desc,name,physical_name FROM sys.master_files WHERE database_id=DB_ID(?) ORDER BY file_id")) {
-            s.setString(1,config.banco);
-            try(ResultSet r=s.executeQuery()) { while(r.next()) atuais.add(new ArquivoBanco(r.getInt(1),r.getString(2),r.getString(3),r.getString(4))); }
+        Map<Integer,ArquivoBanco> atuais=new HashMap<>();
+        try(PreparedStatement s=c.prepareStatement("SELECT file_id,type_desc,physical_name FROM "+banco()+".sys.database_files")) {
+            s.setQueryTimeout(config.timeoutSegundos);
+            try(ResultSet r=s.executeQuery()) {
+                while(r.next()) atuais.put(r.getInt(1),new ArquivoBanco(r.getString(2),r.getString(3)));
+            }
         }
+        if (atuais.isEmpty()) throw new RegraNegocioException("Não foi possível consultar os arquivos atuais do banco de destino.");
         List<String> movimentos=new ArrayList<>();
         try(PreparedStatement s=inspecao(c,registro,"FILES")) {
             try(ResultSet r=s.executeQuery()) {
                 while(r.next()) {
                     int id=r.getInt("FileId"); String tipo=r.getString("Type");
-                    var atual=atuais.stream().filter(a -> a.id()==id).findFirst()
-                            .orElseThrow(() -> new RegraNegocioException("Os arquivos do backup não correspondem à estrutura atual."));
+                    var atual=atuais.remove(id);
+                    if (atual==null) throw new RegraNegocioException("Os arquivos do backup não correspondem à estrutura atual.");
                     if (!(("D".equals(tipo)&&"ROWS".equals(atual.tipo())) || ("L".equals(tipo)&&"LOG".equals(atual.tipo()))))
                         throw new RegraNegocioException("Este backup possui um tipo de arquivo não suportado pela restauração.");
                     movimentos.add("MOVE "+literal(r.getString("LogicalName"))+" TO "+literal(atual.caminho()));
                 }
             }
         }
-        if (movimentos.isEmpty() || movimentos.size()!=atuais.size()) throw new RegraNegocioException("A quantidade de arquivos do backup difere da base atual.");
+        if (!atuais.isEmpty()) throw new RegraNegocioException("A quantidade de arquivos do backup difere da base atual.");
         antesDeAlterar.run();
         SQLException erro=null;
         try {
