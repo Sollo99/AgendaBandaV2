@@ -19,7 +19,7 @@ Desenvolvida como Mínimo Produto Viável (MPV) para o Projeto de Extensão Comu
 
 ## Comece aqui
 
-O projeto utiliza **Java 17 e Maven 3.9**, **React com TypeScript**, **Node.js 22 ou superior** e **SQL Server 2016 SP1 ou superior**, com compatibilidade 130 ou superior.
+O projeto utiliza **Java 17 com Maven Wrapper**, **React com TypeScript**, **Node.js 22 ou superior** e **SQL Server 2016 SP1 ou superior**, com compatibilidade 130 ou superior.
 
 1. Siga o [guia de instalação](INSTALACAO.md) para preparar as ferramentas e executar os sete scripts SQL na ordem indicada.
 2. Inicie o backend e o frontend conforme o guia. A interface local fica em [http://localhost:5173](http://localhost:5173).

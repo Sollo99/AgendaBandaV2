@@ -15,12 +15,12 @@
 
 | Componente | Tecnologia | Requisito para execução |
 | --- | --- | --- |
-| Backend | Java, Spring Boot, Spring Data JPA e JDBC | JDK 17 e Maven 3.9. |
+| Backend | Java, Spring Boot, Spring Data JPA e JDBC | JDK 17. O Maven Wrapper baixa o Maven 3.9.12 na primeira execução. |
 | Frontend | React, TypeScript, Vite e Chakra UI | Node.js 22 ou superior e npm. |
 | Banco de dados | Microsoft SQL Server | SQL Server 2016 SP1 ou superior; a edição Express pode ser utilizada. |
 | Administração do banco | Scripts T-SQL | SQL Server Management Studio ou outro cliente compatível com separadores `GO`. |
 
-O banco precisa de **nível de compatibilidade 130 ou superior**. Java, Maven, Node.js e npm devem estar disponíveis no terminal.
+O banco precisa de **nível de compatibilidade 130 ou superior**. Java, Node.js e npm devem estar disponíveis no terminal.
 
 ## Obter o projeto
 
@@ -90,8 +90,10 @@ DB_PASSWORD=agenda123
 Em seguida, dentro de `backend`:
 
 ```powershell
-mvn spring-boot:run
+.\mvnw.cmd spring-boot:run
 ```
+
+No Linux ou macOS, dentro de `backend`, use `sh ./mvnw spring-boot:run`. A primeira execução precisa de acesso ao Maven Central para baixar o Maven e as dependências do projeto.
 
 Mantenha o terminal aberto. A API estará disponível em `http://localhost:8080/api`.
 
@@ -121,7 +123,8 @@ A saída será gravada em `web/dist`. As dependências devem ser instaladas no s
 
 | Situação | O que conferir |
 | --- | --- |
-| `mvn`, `java`, `node` ou `npm` não reconhecido | Instalação da ferramenta e configuração do `PATH`; reabra o terminal após instalar. |
+| `java`, `node` ou `npm` não reconhecido | Instalação da ferramenta e configuração do `PATH`; reabra o terminal após instalar. |
+| O Maven Wrapper não consegue baixar a distribuição | Confira o acesso a `repo.maven.apache.org` e rode novamente o comando dentro de `backend`. |
 | Falha de conexão com o banco | Serviço da instância, TCP/IP, porta, endereço e valores do `backend/.env`. |
 | Login `agenda_user` recusado | Modo de autenticação do SQL Server, execução do script `00` na instância correta e senha configurada. |
 | Tabela, função, view ou procedure inexistente | Execução completa dos sete scripts, na ordem indicada, e conexão ao banco `AgendaBanda`. |
