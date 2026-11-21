@@ -90,7 +90,7 @@ GO
 IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name=N'agenda_user')
     CREATE USER agenda_user FOR LOGIN agenda_user;
 GRANT EXECUTE ON dbo.usp_agendabanda_inspecionar_backup TO agenda_user;
-GRANT SELECT ON dbo.fn_agendabanda_diretorio_backup TO agenda_user;
+GRANT EXECUTE ON dbo.fn_agendabanda_diretorio_backup TO agenda_user;
 GO
 
 USE AgendaBanda;
